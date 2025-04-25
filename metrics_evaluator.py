@@ -11,50 +11,112 @@ from typing import Dict, Any, Optional, List
 from .config import UseCaseConfig
 
 class BaseMetricsEvaluator:
-    def __init__(
-        self,
-        config: UseCaseConfig,
-        embedding_model_name: str = 'paraphrase-MiniLM-L6-v2',
-        bias_threshold: float = 0.5,
-        hallucination_threshold: float = 0.5,
-        relevancy_threshold: float = 0.7,
-        toxicity_threshold: float = 0.5
-    ):
+    """Base class for evaluating answers."""
+    
+    def __init__(self, config: UseCaseConfig):
         """
         Initialize the metrics evaluator.
         
         Args:
-            config (UseCaseConfig): Configuration for the use case
-            embedding_model_name (str): Name of the sentence transformer model to use
-            bias_threshold (float): Threshold for bias detection
-            hallucination_threshold (float): Threshold for hallucination detection
-            relevancy_threshold (float): Threshold for answer relevancy
-            toxicity_threshold (float): Threshold for toxicity detection
+            config (UseCaseConfig): Use case configuration
         """
         self.config = config
+    
+    def evaluate_answer(
+        self,
+        question: str,
+        answer: str,
+        ground_truth: Optional[str] = None
+    ) -> Dict[str, float]:
+        """
+        Evaluate a single answer.
         
-        # Override thresholds if specified in config
-        if config.metric_thresholds:
-            bias_threshold = config.metric_thresholds.get('bias', bias_threshold)
-            hallucination_threshold = config.metric_thresholds.get('hallucination', hallucination_threshold)
-            relevancy_threshold = config.metric_thresholds.get('relevancy', relevancy_threshold)
-            toxicity_threshold = config.metric_thresholds.get('toxicity', toxicity_threshold)
-
-        # Set environment variable to avoid parallelism issues
-        os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-        # Load embedding model
-        self.embedding_model = SentenceTransformer(embedding_model_name)
-
-        # Initialize metrics
-        self.bias_metric = BiasMetric(threshold=bias_threshold)
-        self.hallucination_metric = HallucinationMetric(threshold=hallucination_threshold)
-        self.answer_relevancy_metric = AnswerRelevancyMetric(
-            threshold=relevancy_threshold,
-            model="gpt-4",
-            include_reason=True
-        )
-        self.toxicity_metric = ToxicityMetric(threshold=toxicity_threshold, async_mode=False)
+        Args:
+            question (str): The question
+            answer (str): The answer to evaluate
+            ground_truth (str, optional): Ground truth answer for comparison
+            
+        Returns:
+            Dict[str, float]: Dictionary of metric scores
+        """
+        metrics = {
+            'Relevance': self._calculate_relevance(question, answer),
+            'Readability': self._calculate_readability(answer),
+            'Bias_Score': self._calculate_bias(answer),
+            'Hallucination_Score': self._calculate_hallucination(answer, ground_truth)
+        }
+        
+        # Apply thresholds if defined
+        if self.config.metric_thresholds:
+            for metric, threshold in self.config.metric_thresholds.items():
+                if metric in metrics:
+                    metrics[metric] = 1.0 if metrics[metric] >= threshold else 0.0
+        
+        return metrics
+    
+    def evaluate_answers(
+        self,
+        questions: List[str],
+        answers: List[str],
+        ground_truths: Optional[List[str]] = None,
+        output_csv: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        Evaluate multiple answers.
+        
+        Args:
+            questions (List[str]): List of questions
+            answers (List[str]): List of answers to evaluate
+            ground_truths (List[str], optional): List of ground truth answers
+            output_csv (str, optional): Path to save the evaluation results
+            
+        Returns:
+            pd.DataFrame: DataFrame containing evaluation results
+        """
+        if len(questions) != len(answers):
+            raise ValueError("Number of questions must match number of answers")
+        
+        if ground_truths and len(ground_truths) != len(questions):
+            raise ValueError("Number of ground truths must match number of questions")
+        
+        results = []
+        for i, (question, answer) in enumerate(zip(questions, answers)):
+            ground_truth = ground_truths[i] if ground_truths else None
+            metrics = self.evaluate_answer(question, answer, ground_truth)
+            
+            results.append({
+                'Question': question,
+                'Answer': answer,
+                'Ground_Truth': ground_truth,
+                **metrics
+            })
+        
+        df = pd.DataFrame(results)
+        if output_csv:
+            df.to_csv(output_csv, index=False)
+            print(f"Evaluation results saved to {output_csv}")
+        
+        return df
+    
+    def _calculate_relevance(self, question: str, answer: str) -> float:
+        """Calculate relevance score between question and answer."""
+        # TODO: Implement relevance calculation
+        return 0.5
+    
+    def _calculate_readability(self, answer: str) -> float:
+        """Calculate readability score of the answer."""
+        # TODO: Implement readability calculation
+        return 0.5
+    
+    def _calculate_bias(self, answer: str) -> float:
+        """Calculate bias score of the answer."""
+        # TODO: Implement bias calculation
+        return 0.5
+    
+    def _calculate_hallucination(self, answer: str, ground_truth: Optional[str]) -> float:
+        """Calculate hallucination score of the answer."""
+        # TODO: Implement hallucination calculation
+        return 0.5
 
     def get_evaluation_criteria(self) -> str:
         """Get the evaluation criteria from the configuration."""
@@ -135,37 +197,34 @@ class BaseMetricsEvaluator:
 
         return metrics
 
-    def evaluate_answers(
+    def calculate_metrics_for_answers(
         self,
         questions: List[str],
         answers: List[str],
-        output_csv: Optional[str] = None
+        ground_truths: Optional[List[str]] = None
     ) -> pd.DataFrame:
         """
-        Evaluate a list of question-answer pairs.
+        Calculate metrics for a list of question-answer pairs.
         
         Args:
             questions (List[str]): List of questions
-            answers (List[str]): List of corresponding answers
-            output_csv (str, optional): Path to save the evaluation results
+            answers (List[str]): List of answers
+            ground_truths (List[str], optional): List of ground truth answers
         
         Returns:
-            pd.DataFrame: DataFrame containing evaluation results
+            pd.DataFrame: DataFrame containing calculated metrics
         """
         results = []
         
         for question, answer in zip(questions, answers):
+            ground_truth = ground_truths[questions.index(question)] if ground_truths else None
             metrics = self.calculate_metrics(question, answer)
             results.append({
                 "Question": question,
                 "Answer": answer,
+                "Ground_Truth": ground_truth,
                 **metrics
             })
         
         df = pd.DataFrame(results)
-        
-        if output_csv:
-            df.to_csv(output_csv, index=False)
-            print(f"Evaluation results saved to {output_csv}")
-        
         return df 
