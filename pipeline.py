@@ -21,10 +21,8 @@ The output CSV includes:
   - NLP Metrics: semantic_similarity, answer_similarity, answer_length, 
     flesch_reading_ease, flesch_kincaid_grade, sentiment_polarity, sentiment_subjectivity
   - Text Comparison: rouge1_f, rouge2_f, rougeL_f, bleu_score, 
-    bertscore_precision, bertscore_recall, bertscore_f1
-  - DeepEval Metrics: bias_score, hallucination_score, toxicity_score, 
-    relevancy_score, prompt_alignment_score, correctness_score
-  - Explanatory metrics: relevancy_reason, prompt_alignment_reason
+    bertscore_precision, bertscore_recall, bertscore_f1, entailment_score, entailment_label
+  - Comparative Metrics: analysis of differences between model and reference answers
   - Reference metrics: correct_semantic_similarity, correct_answer_length, etc.
 """
 
@@ -49,14 +47,16 @@ METRIC_CATEGORIES = {
     ],
     'Text Comparison': [
         'rouge1_f', 'rouge2_f', 'rougeL_f', 'bleu_score',
-        'bertscore_precision', 'bertscore_recall', 'bertscore_f1'
+        'bertscore_precision', 'bertscore_recall', 'bertscore_f1',
+        'entailment_score', 'entailment_label'
     ],
-    'DeepEval Metrics': [
-        'bias_score', 'hallucination_score', 'toxicity_score',
-        'relevancy_score', 'prompt_alignment_score', 'correctness_score'
-    ],
-    'Explanatory Metrics': [
-        'relevancy_reason', 'prompt_alignment_reason'
+    'Comparative Metrics': [
+        'comparison_answer_length_delta', 'comparison_answer_length_pct_change', 'comparison_answer_length_analysis',
+        'comparison_flesch_reading_ease_delta', 'comparison_flesch_reading_ease_pct_change', 'comparison_flesch_reading_ease_analysis',
+        'comparison_flesch_kincaid_grade_delta', 'comparison_flesch_kincaid_grade_pct_change', 'comparison_flesch_kincaid_grade_analysis',
+        'comparison_sentiment_polarity_delta', 'comparison_sentiment_polarity_pct_change', 'comparison_sentiment_polarity_analysis',
+        'comparison_sentiment_subjectivity_delta', 'comparison_sentiment_subjectivity_pct_change', 'comparison_sentiment_subjectivity_analysis',
+        'comparison_relevance_delta', 'comparison_relevance_analysis', 'comparison_summary'
     ],
     'Reference Metrics': [
         'correct_semantic_similarity', 'correct_answer_length',
@@ -82,7 +82,6 @@ class MedicalQAPipeline:
         prompt_types: List[str] = None,
         prompts_per_type: int = 1,
         enable_metrics: bool = True,
-        metrics_model: str = "mistralai/Mistral-7B-Instruct-v0.2",
         use_auth: bool = True,
         exclude_long_text: bool = False,
         verbose: bool = True
@@ -96,7 +95,6 @@ class MedicalQAPipeline:
             prompt_types: List of prompt types to use (None for all)
             prompts_per_type: Number of prompts to generate per type
             enable_metrics: Whether to enable metrics evaluation
-            metrics_model: Model to use for metrics evaluation
             use_auth: Whether to use Hugging Face authentication
             exclude_long_text: Whether to exclude long text fields (reasons) from CSV output
             verbose: Whether to print detailed metrics in the terminal
@@ -113,7 +111,6 @@ class MedicalQAPipeline:
         self.prompt_types = prompt_types if prompt_types else list(PROMPT_TYPES.keys())
         self.prompts_per_type = prompts_per_type
         self.enable_metrics = enable_metrics
-        self.metrics_model = metrics_model
         self.use_auth = use_auth
         self.exclude_long_text = exclude_long_text
         self.verbose = verbose
@@ -142,9 +139,8 @@ class MedicalQAPipeline:
         # Initialize metrics evaluator if enabled
         self.metrics_evaluator = None
         if self.enable_metrics:
-            print(f"Initializing metrics evaluator with model {metrics_model}...")
+            print("Initializing metrics evaluator...")
             self.metrics_evaluator = MetricsEvaluator(
-                eval_model_name=metrics_model,
                 verbose=self.verbose
             )
         
@@ -190,39 +186,27 @@ class MedicalQAPipeline:
         # Print configuration
         self._print_config(dataset_path, output_path, num_samples)
         
-        # Load the dataset
-        df = self.load_dataset(dataset_path, num_samples)
-        
-        # Process data and generate results
-        results = self._process_data(df)
-        
         # Create output directory if it doesn't exist
         output_path_obj = Path(output_path)
         if not output_path_obj.parent.exists():
             os.makedirs(output_path_obj.parent, exist_ok=True)
         
-        # Remove long text fields if requested
-        if self.exclude_long_text and results:
-            # Fields that might contain long text
-            long_text_fields = ['relevancy_reason', 'prompt_alignment_reason']
-            results_processed = []
-            
-            for result in results:
-                # Create a copy without the specified fields
-                processed_result = {k: v for k, v in result.items() if k not in long_text_fields}
-                results_processed.append(processed_result)
-            
-            results_df = pd.DataFrame(results_processed)
-        else:
-            results_df = pd.DataFrame(results)
+        # Load the dataset
+        df = self.load_dataset(dataset_path, num_samples)
         
-        # Save results to CSV
-        results_df.to_csv(output_path, index=False)
+        # Set up CSV file with headers
+        self.output_path = output_path
+        self.results_df = None
+        self.csv_initialized = False
+        self.long_text_fields = ['relevancy_reason', 'prompt_alignment_reason']
         
-        # Print summary
-        self._print_summary(df, results_df, output_path)
+        # Process data and generate results (this now writes to CSV directly)
+        results = self._process_data(df)
         
-        return results_df
+        # Print summary 
+        self._print_summary(df, self.results_df, output_path)
+        
+        return self.results_df
     
     def _process_data(self, df: pd.DataFrame) -> List[Dict]:
         """
@@ -232,7 +216,7 @@ class MedicalQAPipeline:
             df: DataFrame containing question-answer pairs
             
         Returns:
-            List of dictionaries with results
+            List of dictionaries with results (for backward compatibility)
         """
         results = []
         
@@ -277,8 +261,7 @@ class MedicalQAPipeline:
                     prompt_definition = PROMPT_TYPES[prompt_type]
                     
                     # Construct the actual system prompt used in the prompt_generation.py
-                    generation_system_prompt = f"""You are an expert prompt engineer. Your task is to create a single system prompt for a chatbot that answers medical questions using the {prompt_type} methodology: {prompt_definition}. Ensure that the system prompt is clear and instructs the chatbot effectively. Only provide the system prompt as the output, do not provide any other text besides the prompt. Do not generate any code, just text for a system prompt."""
-                    
+                    generation_system_prompt = f"""You are an expert prompt engineer. Your task is to create a single system prompt for a chatbot that answers medical questions using the {prompt_type} methodology: {prompt_definition}. Ensure that the system prompt is clear and instructs the chatbot effectively. Only provide the system prompt as a text output, do not provide any other text besides the prompt. Do not generate any code. """                    
                     # Print the actual system prompt used for generation
                     print(f"\n{'='*40} SYSTEM PROMPT TEMPLATE {'='*40}")
                     print(generation_system_prompt)
@@ -354,29 +337,48 @@ class MedicalQAPipeline:
                                         result[metric_name] = round(metric_value, 6)
                                     else:
                                         result[metric_name] = metric_value
-                                
-                                # Print key metrics for visibility
-                                print(f"Key metrics: similarity={metrics.get('answer_similarity', 'N/A'):.4f}, "
-                                      f"relevancy={metrics.get('relevancy_score', 'N/A'):.4f}, "
-                                      f"correctness={metrics.get('correctness_score', 'N/A'):.4f}")
-                                
-                                # Add detailed metrics breakdown
-                                print("Metrics collected:")
-                                for category, category_metrics in METRIC_CATEGORIES.items():
-                                    collected = [m for m in category_metrics if m in metrics]
-                                    if collected:
-                                        print(f"  - {category}: {len(collected)}/{len(category_metrics)} metrics")
                             
-                            # Store result
+                            # Process and write to CSV immediately
+                            if self.exclude_long_text:
+                                processed_result = {k: v for k, v in result.items() if k not in self.long_text_fields}
+                                self._write_to_csv(processed_result)
+                            else:
+                                self._write_to_csv(result)
+                            
+                            # Store result for backward compatibility
                             results.append(result)
                             
                             # Update progress bar
                             progress_bar.update(1)
+                            
+                            # Print concise confirmation of incremental save
+                            print(f"✓ Result #{len(results)} saved: Q{idx}, {prompt_type} ({i+1}/{self.prompts_per_type}), {prompt_model_name} → {answer_model_name}")
         
         # Close the progress bar
         progress_bar.close()
         
         return results
+    
+    def _write_to_csv(self, result: Dict[str, Any]) -> None:
+        """
+        Write a single result to the CSV file.
+        
+        Args:
+            result: Dictionary containing result data
+        """
+        # Convert single result to DataFrame
+        result_df = pd.DataFrame([result])
+        
+        # If this is the first write, initialize the CSV with headers
+        if not self.csv_initialized:
+            result_df.to_csv(self.output_path, index=False, mode='w')
+            self.csv_initialized = True
+            self.results_df = result_df
+        else:
+            # Append to the CSV without writing headers
+            result_df.to_csv(self.output_path, index=False, mode='a', header=False)
+            # Update in-memory DataFrame for the summary
+            self.results_df = pd.concat([self.results_df, result_df])
     
     def _print_config(self, dataset_path: str, output_path: str, num_samples: Optional[int]) -> None:
         """Print the pipeline configuration."""
@@ -392,14 +394,11 @@ class MedicalQAPipeline:
         print(f"Number of samples: {num_samples if num_samples else 'All'}")
         print(f"Metrics evaluation: {'Enabled' if self.enable_metrics else 'Disabled'}")
         if self.enable_metrics:
-            print(f"Metrics model: {self.metrics_model}")
             print(f"Verbose metrics output: {self.verbose} (colorized formatting provided by metrics_evaluator)")
             # Print expected metrics by category
             print("Expected metrics by category:")
             for category, metrics in METRIC_CATEGORIES.items():
                 print(f"  - {category}: {len(metrics)} metrics")
-                if category == "Explanatory Metrics" and self.exclude_long_text:
-                    print("    (Note: These will be excluded from CSV output)")
         print(f"Exclude long text fields: {self.exclude_long_text}")
         print(f"Using authentication: {self.use_auth}")
         
@@ -487,20 +486,18 @@ def main():
                         help='Prompt types to use (default: all)')
     parser.add_argument('--prompts-per-type', type=int, default=1,
                         help='Number of prompts to generate per type')
-    parser.add_argument('--samples', type=int, default=None,
+    parser.add_argument('--num-questions', type=int, default=None,
                         help='Number of question samples to process (default: all)')
     parser.add_argument('--no-auth', action='store_true',
                         help='Do not use Hugging Face authentication')
     parser.add_argument('--no-metrics', action='store_true',
                         help='Disable metrics evaluation')
-    parser.add_argument('--metrics-model', type=str, default="mistralai/Mistral-7B-Instruct-v0.2",
-                        help='Model to use for metrics evaluation')
     parser.add_argument('--exclude-long-text', action='store_true',
                         help='Exclude long text fields from CSV output')
     parser.add_argument('--list-metrics', action='store_true',
                         help='List all available metrics with descriptions and exit')
     parser.add_argument('--no-verbose', action='store_true',
-                        help='Disable colorized metrics display in the terminal (formatting handled by metrics_evaluator)')
+                        help='Disable colorized metrics display in the terminal')
     
     args = parser.parse_args()
     
@@ -526,7 +523,6 @@ def main():
         prompt_types=args.prompt_types,
         prompts_per_type=args.prompts_per_type,
         enable_metrics=not args.no_metrics,
-        metrics_model=args.metrics_model,
         use_auth=not args.no_auth,
         exclude_long_text=args.exclude_long_text,
         verbose=not args.no_verbose
@@ -536,7 +532,7 @@ def main():
     pipeline.run(
         dataset_path=args.dataset,
         output_path=args.output,
-        num_samples=args.samples
+        num_samples=args.num_questions
     )
 
 if __name__ == "__main__":
