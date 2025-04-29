@@ -17,7 +17,12 @@ Medical question answering requires both accuracy and appropriate explanation. T
 
 ## Features
 
-- Supports multiple LLMs (Phi-2, Mistral-7B, Llama-3-8B, Gemma-2-2B, OpenBioLLM)
+- Supports multiple LLMs 
+  - Phi-2
+  - Mistral-7B
+  - Llama-3-8B
+  - Gemma-2-2B
+  - OpenBioLLM
 - Generates prompts using various reasoning methodologies:
   - Chain of Thought: Step-by-step reasoning through medical concepts
   - Trigger Chain of Thought: Using prompts that elicit medical reasoning
@@ -183,7 +188,6 @@ python pipeline.py \
   --answer-models phi-2 \
   --prompt-types "chain of thought" \
   --num-questions 10 \
-  --no-deepeval \
   --exclude-long-text \
   --no-verbose
 ```
@@ -209,7 +213,6 @@ python pipeline.py \
 - `--num-questions`: Number of question-answer pairs to process (default: all)
 - `--no-auth`: Run without Hugging Face authentication
 - `--no-metrics`: Disable all metrics evaluation
-- `--no-deepeval`: Disable DeepEval metrics for lower memory usage
 - `--exclude-long-text`: Exclude long text fields from CSV output
 - `--no-verbose`: Disable colorized metrics display in the terminal
 - `--list-metrics`: List all available metrics with descriptions and exit
@@ -339,25 +342,6 @@ When verbose mode is enabled (default), metrics are displayed with color coding 
 - Red: Poor scores
 
 This provides immediate visual feedback on answer quality during evaluation.
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Out of Memory Errors**
-   - Use the `--no-deepeval` flag to disable memory-intensive metrics
-   - Run with fewer models loaded simultaneously
-   - Reduce batch sizes or process fewer questions with `--num-questions`
-
-2. **Model Loading Failures**
-   - Ensure you have a valid Hugging Face token in your `.env` file
-   - Check if you have sufficient disk space for model downloads
-   - Try using the `--no-auth` flag if working with fully public models
-
-3. **Slow Execution**
-   - Use smaller models (e.g., phi-2 instead of llama-3-8b)
-   - Reduce the number of prompt variations with `--prompts-per-type 1`
-   - Sample fewer questions with `--num-questions`
 
 ## Extending the System
 
