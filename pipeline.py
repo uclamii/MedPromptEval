@@ -6,7 +6,8 @@ This module provides a comprehensive end-to-end pipeline for:
 1. Loading a CSV file containing medical question-answer pairs
 2. Generating system prompts on-the-fly using a prompt generation model
 3. Using an answer generation model to answer questions based on these prompts
-4. Storing results in a CSV with detailed information about the entire process
+4. Evaluating generated answers using various metrics
+5. Storing results in a CSV with detailed information about the entire process
 
 The output CSV includes:
 - question
@@ -16,6 +17,15 @@ The output CSV includes:
 - system_prompt (the generated system prompt)
 - answer_model (model used for answering)
 - model_answer (answer from the LLM)
+- Multiple evaluation metrics, including:
+  - NLP Metrics: semantic_similarity, answer_similarity, answer_length, 
+    flesch_reading_ease, flesch_kincaid_grade, sentiment_polarity, sentiment_subjectivity
+  - Text Comparison: rouge1_f, rouge2_f, rougeL_f, bleu_score, 
+    bertscore_precision, bertscore_recall, bertscore_f1
+  - DeepEval Metrics: bias_score, hallucination_score, toxicity_score, 
+    relevancy_score, prompt_alignment_score, correctness_score
+  - Explanatory metrics: relevancy_reason, prompt_alignment_reason
+  - Reference metrics: correct_semantic_similarity, correct_answer_length, etc.
 """
 
 import os
@@ -23,11 +33,42 @@ import argparse
 import pandas as pd
 from tqdm import tqdm
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Any
 
 from prompt_generation import PromptGenerator
 from answer_generation import AnswerGenerator
+from metrics_evaluator import MetricsEvaluator
 from config import PROMPT_MODEL_CONFIGS, ANSWER_MODEL_CONFIGS, PROMPT_TYPES, ensure_hf_login
+
+# List of all expected metrics categories from the metrics_evaluator
+METRIC_CATEGORIES = {
+    'NLP Metrics': [
+        'semantic_similarity', 'answer_similarity', 'answer_length',
+        'flesch_reading_ease', 'flesch_kincaid_grade', 
+        'sentiment_polarity', 'sentiment_subjectivity'
+    ],
+    'Text Comparison': [
+        'rouge1_f', 'rouge2_f', 'rougeL_f', 'bleu_score',
+        'bertscore_precision', 'bertscore_recall', 'bertscore_f1'
+    ],
+    'DeepEval Metrics': [
+        'bias_score', 'hallucination_score', 'toxicity_score',
+        'relevancy_score', 'prompt_alignment_score', 'correctness_score'
+    ],
+    'Explanatory Metrics': [
+        'relevancy_reason', 'prompt_alignment_reason'
+    ],
+    'Reference Metrics': [
+        'correct_semantic_similarity', 'correct_answer_length',
+        'correct_flesch_reading_ease', 'correct_flesch_kincaid_grade',
+        'correct_sentiment_polarity', 'correct_sentiment_subjectivity'
+    ]
+}
+
+# Flattened list of all expected metrics
+ALL_EXPECTED_METRICS = [
+    metric for category in METRIC_CATEGORIES.values() for metric in category
+]
 
 class MedicalQAPipeline:
     """
@@ -40,7 +81,11 @@ class MedicalQAPipeline:
         answer_models: Union[str, List[str]] = 'mistral-7b',
         prompt_types: List[str] = None,
         prompts_per_type: int = 1,
-        use_auth: bool = True
+        enable_metrics: bool = True,
+        metrics_model: str = "mistralai/Mistral-7B-Instruct-v0.2",
+        use_auth: bool = True,
+        exclude_long_text: bool = False,
+        verbose: bool = True
     ):
         """
         Initialize the pipeline with specified models and parameters.
@@ -50,7 +95,11 @@ class MedicalQAPipeline:
             answer_models: Model(s) to use for answering questions (single or list)
             prompt_types: List of prompt types to use (None for all)
             prompts_per_type: Number of prompts to generate per type
+            enable_metrics: Whether to enable metrics evaluation
+            metrics_model: Model to use for metrics evaluation
             use_auth: Whether to use Hugging Face authentication
+            exclude_long_text: Whether to exclude long text fields (reasons) from CSV output
+            verbose: Whether to print detailed metrics in the terminal
         """
         # Convert single models to lists for consistent handling
         if isinstance(prompt_models, str):
@@ -63,7 +112,11 @@ class MedicalQAPipeline:
         self.answer_models = answer_models
         self.prompt_types = prompt_types if prompt_types else list(PROMPT_TYPES.keys())
         self.prompts_per_type = prompts_per_type
+        self.enable_metrics = enable_metrics
+        self.metrics_model = metrics_model
         self.use_auth = use_auth
+        self.exclude_long_text = exclude_long_text
+        self.verbose = verbose
         
         # Ensure authentication if needed
         if self.use_auth:
@@ -84,6 +137,15 @@ class MedicalQAPipeline:
             self.answer_generators[model_key] = AnswerGenerator(
                 model_key=model_key,
                 use_auth=self.use_auth
+            )
+        
+        # Initialize metrics evaluator if enabled
+        self.metrics_evaluator = None
+        if self.enable_metrics:
+            print(f"Initializing metrics evaluator with model {metrics_model}...")
+            self.metrics_evaluator = MetricsEvaluator(
+                eval_model_name=metrics_model,
+                verbose=self.verbose
             )
         
     def load_dataset(self, dataset_path: str, num_samples: Optional[int] = None) -> pd.DataFrame:
@@ -139,8 +201,22 @@ class MedicalQAPipeline:
         if not output_path_obj.parent.exists():
             os.makedirs(output_path_obj.parent, exist_ok=True)
         
+        # Remove long text fields if requested
+        if self.exclude_long_text and results:
+            # Fields that might contain long text
+            long_text_fields = ['relevancy_reason', 'prompt_alignment_reason']
+            results_processed = []
+            
+            for result in results:
+                # Create a copy without the specified fields
+                processed_result = {k: v for k, v in result.items() if k not in long_text_fields}
+                results_processed.append(processed_result)
+            
+            results_df = pd.DataFrame(results_processed)
+        else:
+            results_df = pd.DataFrame(results)
+        
         # Save results to CSV
-        results_df = pd.DataFrame(results)
         results_df.to_csv(output_path, index=False)
         
         # Print summary
@@ -171,6 +247,7 @@ class MedicalQAPipeline:
         for idx, row in enumerate(df.itertuples(), 1):
             question = row.question
             correct_answer = row.answer
+            question_id = str(getattr(row, 'id', idx))  # Use ID if available, otherwise use index
             
             # Print question info
             print(f"\n{'#'*100}")
@@ -237,8 +314,8 @@ class MedicalQAPipeline:
                                 question=question
                             )
                             
-                            # Store result
-                            results.append({
+                            # Prepare base result dictionary
+                            result = {
                                 "prompt_num": prompt_num,
                                 "question": question,
                                 "correct_answer": correct_answer,
@@ -250,7 +327,48 @@ class MedicalQAPipeline:
                                 "answer_model": answer_model_name,
                                 "answer_model_key": answer_model_key,
                                 "model_answer": model_answer
-                            })
+                            }
+                            
+                            # Evaluate metrics if enabled
+                            if self.enable_metrics and self.metrics_evaluator:
+                                print(f"Evaluating answer metrics...")
+                                
+                                # Run evaluation metrics
+                                metrics = self.metrics_evaluator.evaluate_answer(
+                                    question=question,
+                                    model_answer=model_answer,
+                                    correct_answer=correct_answer,
+                                    system_prompt=system_prompt,
+                                    question_id=question_id
+                                )
+                                
+                                # Check for any missing expected metrics
+                                for expected_metric in ALL_EXPECTED_METRICS:
+                                    if expected_metric not in metrics and not expected_metric.startswith("correct_"):
+                                        print(f"Warning: Expected metric '{expected_metric}' not found in evaluation results")
+                                
+                                # Add all metrics to the result dictionary
+                                for metric_name, metric_value in metrics.items():
+                                    # Format float values to 4 decimal places for readability in CSV
+                                    if isinstance(metric_value, float):
+                                        result[metric_name] = round(metric_value, 6)
+                                    else:
+                                        result[metric_name] = metric_value
+                                
+                                # Print key metrics for visibility
+                                print(f"Key metrics: similarity={metrics.get('answer_similarity', 'N/A'):.4f}, "
+                                      f"relevancy={metrics.get('relevancy_score', 'N/A'):.4f}, "
+                                      f"correctness={metrics.get('correctness_score', 'N/A'):.4f}")
+                                
+                                # Add detailed metrics breakdown
+                                print("Metrics collected:")
+                                for category, category_metrics in METRIC_CATEGORIES.items():
+                                    collected = [m for m in category_metrics if m in metrics]
+                                    if collected:
+                                        print(f"  - {category}: {len(collected)}/{len(category_metrics)} metrics")
+                            
+                            # Store result
+                            results.append(result)
                             
                             # Update progress bar
                             progress_bar.update(1)
@@ -272,11 +390,29 @@ class MedicalQAPipeline:
         print(f"Prompt types: {', '.join(self.prompt_types)}")
         print(f"Prompts per type: {self.prompts_per_type}")
         print(f"Number of samples: {num_samples if num_samples else 'All'}")
+        print(f"Metrics evaluation: {'Enabled' if self.enable_metrics else 'Disabled'}")
+        if self.enable_metrics:
+            print(f"Metrics model: {self.metrics_model}")
+            print(f"Verbose metrics output: {self.verbose} (colorized formatting provided by metrics_evaluator)")
+            # Print expected metrics by category
+            print("Expected metrics by category:")
+            for category, metrics in METRIC_CATEGORIES.items():
+                print(f"  - {category}: {len(metrics)} metrics")
+                if category == "Explanatory Metrics" and self.exclude_long_text:
+                    print("    (Note: These will be excluded from CSV output)")
+        print(f"Exclude long text fields: {self.exclude_long_text}")
         print(f"Using authentication: {self.use_auth}")
         
         # Calculate total number of combinations
         total_combinations = len(self.prompt_models) * len(self.answer_models) * len(self.prompt_types) * self.prompts_per_type
-        total_results = total_combinations * (num_samples if num_samples else len(pd.read_csv(dataset_path)))
+        
+        # Get the number of rows in the dataset
+        try:
+            dataset_rows = num_samples if num_samples else len(pd.read_csv(dataset_path))
+        except Exception as e:
+            dataset_rows = "Unknown (error reading dataset)"
+            
+        total_results = total_combinations * dataset_rows if isinstance(dataset_rows, int) else "Unknown"
         print(f"Total model combinations: {total_combinations}")
         print(f"Expected total results: {total_results}")
         print(f"{'='*100}\n")
@@ -308,6 +444,25 @@ class MedicalQAPipeline:
                 ]
                 print(f"  - {prompt_model} (prompt) + {answer_model} (answer): {len(combo_df)} results")
         
+        # Print metrics summary if available
+        if self.enable_metrics:
+            print(f"\nMetrics summary:")
+            
+            # Count the number of metrics collected by category
+            if len(results_df) > 0:
+                for category, category_metrics in METRIC_CATEGORIES.items():
+                    existing_metrics = [m for m in category_metrics if m in results_df.columns]
+                    if existing_metrics:
+                        print(f"\n  {category} ({len(existing_metrics)}/{len(category_metrics)} metrics):")
+                        
+                        # Report average values for numeric metrics
+                        for metric in existing_metrics:
+                            if metric in results_df.columns and pd.api.types.is_numeric_dtype(results_df[metric]):
+                                avg_value = results_df[metric].mean()
+                                print(f"    - Average {metric}: {avg_value:.4f}")
+            else:
+                print("  No metrics data available in results.")
+        
         print(f"{'#'*100}")
 
 def main():
@@ -336,8 +491,33 @@ def main():
                         help='Number of question samples to process (default: all)')
     parser.add_argument('--no-auth', action='store_true',
                         help='Do not use Hugging Face authentication')
+    parser.add_argument('--no-metrics', action='store_true',
+                        help='Disable metrics evaluation')
+    parser.add_argument('--metrics-model', type=str, default="mistralai/Mistral-7B-Instruct-v0.2",
+                        help='Model to use for metrics evaluation')
+    parser.add_argument('--exclude-long-text', action='store_true',
+                        help='Exclude long text fields from CSV output')
+    parser.add_argument('--list-metrics', action='store_true',
+                        help='List all available metrics with descriptions and exit')
+    parser.add_argument('--no-verbose', action='store_true',
+                        help='Disable colorized metrics display in the terminal (formatting handled by metrics_evaluator)')
     
     args = parser.parse_args()
+    
+    # Handle special case to list metrics
+    if args.list_metrics:
+        # Create a metrics evaluator instance to get the documentation
+        evaluator = MetricsEvaluator()
+        metrics_docs = evaluator.get_metrics_documentation()
+        
+        print("\nAvailable metrics in the Medical QA Pipeline:\n")
+        for category, metrics in metrics_docs.items():
+            print(f"\n{category} ({len(metrics)} metrics):")
+            print("=" * (len(category) + 12))
+            for metric in metrics:
+                print(f"  - {metric['name']}: {metric['description']}")
+        
+        return
     
     # Initialize and run the pipeline
     pipeline = MedicalQAPipeline(
@@ -345,7 +525,11 @@ def main():
         answer_models=args.answer_models,
         prompt_types=args.prompt_types,
         prompts_per_type=args.prompts_per_type,
-        use_auth=not args.no_auth
+        enable_metrics=not args.no_metrics,
+        metrics_model=args.metrics_model,
+        use_auth=not args.no_auth,
+        exclude_long_text=args.exclude_long_text,
+        verbose=not args.no_verbose
     )
     
     # Execute the pipeline
