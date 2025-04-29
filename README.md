@@ -1,210 +1,190 @@
-# Evaluation Method Framework
+# Medical QA Prompt Generator
 
-This framework provides a modular approach to evaluating prompt generation and answer quality for different use cases. It uses a configuration-based system to define use cases and models, making it easy to adapt to different domains and LLM models.
+A system for generating diverse medical question-answering prompts using different reasoning methodologies and large language models.
 
-## Configuration System
+## Overview
 
-The framework uses two types of configuration files:
+This project provides a framework for generating high-quality system prompts that guide language models in answering medical questions. It supports multiple reasoning approaches and can work with various Hugging Face models.
 
-### Model Configurations (JSON)
-Located in `model_configs/`, these files define LLM models and their parameters:
-```json
-{
-  "name": "Mistral-7B",
-  "description": "Mistral 7B Instruct model",
-  "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
-  "model_type": "huggingface",
-  "max_new_tokens": 1000,
-  "temperature": 0.7,
-  "top_p": 0.9,
-  "top_k": 0,
-  "repetition_penalty": 1.2
-}
-```
+## Features
 
-### Use Case Configurations (YAML)
-Located in `use_case_configs/`, these files define use cases and their parameters:
-```yaml
-name: Your Use Case
-description: Description of your use case
-domain: Your Domain
-prompt_types:
-  type1: "Description of prompt type 1"
-  type2: "Description of prompt type 2"
-  # ...
+- Supports multiple LLMs (Phi-2, Mistral-7B, Llama-3-8B, Gemma-2-2B, OpenBioLLM)
+- Generates prompts using various reasoning methodologies:
+  - Chain of Thought
+  - Trigger Chain of Thought
+  - Self Consistency
+  - Prompt Chaining
+  - ReAct
+  - Tree of Thoughts
+  - Role-Based
+  - Metacognitive Prompting
+  - Uncertainty-Based Prompting
+  - Guided Prompting
+- Separate optimized configurations for:
+  - Prompt generation (creative, diverse)
+  - Answer generation (factual, precise)
+- Command-line interface for easy experimentation
+- JSON output format for further processing
+- Evaluation pipeline for testing system prompts on real QA datasets
 
-system_prompt_template: |
-  Your template here with {prompt_type} and {definition} placeholders
+## Project Structure
 
-evaluation_criteria: "Your evaluation criteria"
+- `config.py`: Contains model configurations and prompt type definitions
+- `prompt_generation.py`: Core implementation of the `PromptGenerator` class
+- `test_pipeline.py`: Command-line interface for running the generator
+- `qa_evaluation.py`: Script for evaluating generated prompts on question-answering datasets
 
-evaluation_steps:
-  - "Step 1"
-  - "Step 2"
-  # ...
+## Requirements
 
-additional_considerations:
-  - "Consideration 1"
-  - "Consideration 2"
-  # ...
+- Python 3.8+
+- PyTorch
+- Transformers
+- Hugging Face account with API token (for some models)
+- dotenv
+- pandas
+- tqdm
 
-metric_thresholds:
-  bias: 0.5
-  hallucination: 0.5
-  relevancy: 0.7
-  toxicity: 0.5
+## Installation
 
-models:
-  - name: Mistral-7B
-    description: "Mistral 7B Instruct model"
-    model_id: "mistralai/Mistral-7B-Instruct-v0.3"
-    model_type: huggingface
-    # ... other model parameters
-```
-
-## Base Classes
-
-### ConfigManager
-The central configuration manager that handles:
-- Model configurations (loading, saving, validation)
-- Use case configurations (loading, saving, validation)
-- Model loading and text generation
-- Support for different model types (Hugging Face, OpenAI, Anthropic)
-
-### BasePromptGenerator
-The base class for generating prompts. It provides:
-- Model initialization and configuration
-- Prompt generation pipeline
-- CSV output handling
-
-### BaseMetricsEvaluator
-The base class for evaluating answers. It provides:
-- Metric calculation (relevance, readability, bias, etc.)
-- Deep evaluation metrics (hallucination, toxicity, etc.)
-- CSV output handling
-
-## PubMedQA Evaluation
-
-The framework includes a script for evaluating models on the PubMedQA dataset:
-
-### Downloading the Dataset
-```bash
-python download_pubmedqa.py --output-dir datasets --split train
-```
-
-This will:
-- Download the specified split of the PubMedQA dataset
-- Save it as a CSV file
-- Print dataset statistics and sample questions
-
-### Running the Evaluation
-```bash
-python pubmedqa_evaluation.py --use-case "IRB Documentation" --output-dir "pubmedqa_results" --num-samples 100
-```
-
-This will:
-- Load the specified use case configuration
-- Evaluate each configured model on the dataset
-- Generate answers using the system prompts
-- Compare answers with ground truth
-- Save detailed results and comparison metrics
+1. Clone this repository
+2. Install requirements:
+   ```
+   pip install torch transformers huggingface_hub python-dotenv pandas tqdm
+   ```
+3. Create a `.env` file in the root directory with your Hugging Face token:
+   ```
+   HUGGINGFACE_TOKEN=your_token_here
+   ```
 
 ## Usage
 
-1. Create model configurations in the `model_configs` directory:
+### Basic Usage
+
+Run the generator with default settings (Mistral-7B model):
+
+```bash
+python test_pipeline.py
+```
+
+### Custom Configuration
+
+Specify different parameters:
+
+```bash
+python test_pipeline.py --model phi-2 --output_dir outputs/phi2 --num_prompts 3
+```
+
+### Evaluating QA Performance
+
+Evaluate how well the generated system prompts perform on question-answering tasks:
+
+```bash
+python qa_evaluation.py --dataset datasets/cleaned/medquad_cleaned.csv --prompts prompts/prompts_medical_qa.json --model phi-2
+```
+
+### Available Arguments
+
+- `--model`: Choose the model to use (`phi-2`, `mistral-7b`, `llama-3-8b`, `gemma-2-2b`, `openbiollm-8b`)
+- `--output_dir`: Directory to save generated prompts
+- `--num_prompts`: Number of prompts to generate per type
+- `--no_auth`: Run without Hugging Face authentication
+
+### Available Arguments for QA Evaluation
+
+- `--dataset`: Path to a CSV file containing question-answer pairs (required)
+- `--prompts`: Path to a JSON file with generated prompts (required)
+- `--model`: LLM to use for answering questions (`phi-2`, `mistral-7b`, etc.)
+- `--output`: Path for the output CSV file (default: `qa_results.csv`)
+- `--samples`: Number of question-answer pairs to process (default: all)
+- `--no-auth`: Run without Hugging Face authentication
+
+## Configuration Details
+
+The system uses two separate model configurations to optimize for different tasks:
+
+1. **PROMPT_MODEL_CONFIGS**: Models optimized for prompt generation
+   - Higher temperature (0.7) for creativity
+   - Balanced top_p and top_k for diverse suggestions
+   - Shorter output (512 tokens) focused on system prompt creation
+
+2. **ANSWER_MODEL_CONFIGS**: Models optimized for answering medical questions
+   - Lower temperature (0.3) for factual, precise answers
+   - Higher max_new_tokens (1024) for more detailed responses
+   - Tuned repetition penalty for natural but focused answers
+
+## Output
+
+### Prompt Generation Output
+
+The system generates a JSON file containing:
+
+- Model metadata
+- Generated prompts for each reasoning methodology
+
+Example output structure:
+
 ```json
 {
-  "name": "Your Model",
-  "description": "Description of your model",
-  "model_id": "your/model/id",
-  "model_type": "huggingface",
-  # ... other parameters
+  "metadata": {
+    "model_info": {
+      "name": "mistralai/Mistral-7B-v0.1",
+      "description": "Mistral 7B base model, good for general instruction following"
+    }
+  },
+  "prompts": {
+    "chain of thought": [
+      "You are a medical AI assistant. When answering medical questions, break down your reasoning into clear, logical steps..."
+    ],
+    "role based": [
+      "Assume the role of a medical specialist most relevant to the question being asked..."
+    ],
+    ...
+  }
 }
 ```
 
-2. Create use case configurations in the `use_case_configs` directory:
-```yaml
-name: Your Use Case
-description: Description of your use case
-domain: Your Domain
-prompt_types:
-  # Define your prompt types
-system_prompt_template: |
-  # Define your template
-evaluation_criteria: "Your criteria"
-evaluation_steps:
-  - "Your steps"
-models:
-  - name: Your Model
-    # ... model parameters
-```
+### QA Evaluation Output
 
-3. Use the framework with your configurations:
+The evaluation script produces a CSV file with these columns:
+
+- `question`: The original question
+- `correct_answer`: The ground truth answer
+- `prompt_llm`: Which model generated the system prompt
+- `prompt_type`: The type of reasoning (chain-of-thought, etc.)
+- `system_prompt`: The full system prompt text
+- `answering_llm`: Which model generated the answer
+- `llm_answer`: The model's answer to the question
+
+## Extending the System
+
+### Adding New Models
+
+Add new model configurations to the `PROMPT_MODEL_CONFIGS` and/or `ANSWER_MODEL_CONFIGS` dictionaries in `config.py`:
+
 ```python
-from eval_method.config import ConfigManager
-from eval_method.prompt_generator import BasePromptGenerator
-from eval_method.metrics_evaluator import BaseMetricsEvaluator
-
-# Initialize the configuration manager
-config_manager = ConfigManager()
-
-# Get your use case configuration
-config = config_manager.get_use_case_config("Your Use Case")
-
-# Initialize the generators
-prompt_generator = BasePromptGenerator(config)
-metrics_evaluator = BaseMetricsEvaluator(config)
-
-# Generate prompts
-prompts_df = prompt_generator.generate_all_prompts(output_csv="your_prompts.csv")
-
-# Evaluate answers
-results_df = metrics_evaluator.evaluate_answers(
-    questions=your_questions,
-    answers=your_answers,
-    output_csv="your_results.csv"
-)
+"new-model": {
+    "name": "organization/model-name",
+    "description": "Description of the model",
+    "max_new_tokens": 512,
+    "temperature": 0.7,
+    ...
+}
 ```
 
-## Output Files
+### Adding New Prompt Types
 
-### Prompt Generation Output
-The prompt generator creates a CSV file with:
-- Index: Prompt type
-- Prompt 1-N: Generated prompts for each type
+Add new prompt types to the `PROMPT_TYPES` dictionary in `config.py`:
 
-### Metrics Evaluation Output
-The metrics evaluator creates a CSV file with:
-- Question: Input question
-- Answer: Generated response
-- Various metrics (relevance, readability, bias, etc.)
+```python
+"new prompt type": "Description of the reasoning methodology"
+```
 
-### Model Comparison Output
-The PubMedQA evaluation creates:
-- Individual model results CSV files
-- Model comparison CSV file
-- Statistical test results
-- Visualizations (box plots, heatmap)
+## Performance Considerations
 
-## Customization
+- Models are configured to run on CPU by default for stability
+- For better performance with larger models, consider using a machine with a GPU
+- Adjust generation parameters in `config.py` to balance between quality and speed
 
-You can customize the evaluation by:
-1. Creating new model configurations in the `model_configs` directory
-2. Creating new use case configurations in the `use_case_configs` directory
-3. Defining your prompt types and descriptions
-4. Setting your system prompt template
-5. Specifying your evaluation criteria and steps
-6. Adding domain-specific considerations
-7. Adjusting metric thresholds
+## License
 
-## Creating a New Use Case
-
-1. Create a new YAML file in the `use_case_configs` directory
-2. Define all required fields (name, description, domain, etc.)
-3. Customize prompt types and templates for your domain
-4. Set appropriate evaluation criteria and steps
-5. Add any domain-specific considerations
-6. Adjust metric thresholds if needed
-7. Specify which models to use for this use case
-
-The framework will automatically use your configurations to generate appropriate prompts and evaluate answers for your specific use case. 
+[MIT License](LICENSE) 

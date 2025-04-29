@@ -8,7 +8,7 @@ from deepeval.metrics import BiasMetric, HallucinationMetric, AnswerRelevancyMet
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 import os
 from typing import Dict, Any, Optional, List
-from .config import UseCaseConfig
+from .archive.config import UseCaseConfig
 
 class BaseMetricsEvaluator:
     """Base class for evaluating answers."""

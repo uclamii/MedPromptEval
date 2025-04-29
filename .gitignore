@@ -1,0 +1,80 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+.idea_modules/
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# Hugging Face
+offload/
+cache/
+.cache/
+*.pt
+*.bin
+*.ot
+
+# Project specific
+archive/
+prompts/
+datasets/
+results/
+data_preprocessing/
+qa_results.csv
+prompts_medical_qa.json
+
+# OS specific
+.DS_Store
+Thumbs.db
+.directory
+Desktop.ini
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Other
+*.swp
+*.swo
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.cover 

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Dict, List, Optional
 import os
-from config import UseCaseConfigManager
+from archive.config import UseCaseConfigManager
 from metrics_evaluator import BaseMetricsEvaluator
 import numpy as np
 from scipy import stats

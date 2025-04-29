@@ -3,8 +3,8 @@ import numpy as np
 from datasets import load_dataset
 from typing import Dict, List, Optional, Tuple
 import os
-from config import ConfigManager
-from prompt_generator import BasePromptGenerator
+from archive.config import ConfigManager
+from archive.prompt_generator import BasePromptGenerator
 from metrics_evaluator import BaseMetricsEvaluator
 import torch
 import argparse
