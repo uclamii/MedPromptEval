@@ -3,6 +3,24 @@ Configuration file for the prompt generation system.
 Contains model configurations and prompt types.
 """
 
+import os
+from dotenv import load_dotenv
+from huggingface_hub import login
+
+def ensure_hf_login():
+    """
+    Ensures that the user is logged in to Hugging Face using an API token from .env
+    """
+    load_dotenv()
+    token = os.getenv('HUGGINGFACE_TOKEN')
+    
+    if not token:
+        print("Hugging Face token not found. Please set the HUGGINGFACE_TOKEN in your .env file.")
+        return
+    
+    login(token)
+    print("Successfully logged in to Hugging Face")
+
 # Model configurations with optimized settings for quality outputs to generate a system prompt
 PROMPT_MODEL_CONFIGS = {
     "phi-2": {

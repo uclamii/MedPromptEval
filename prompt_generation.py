@@ -6,21 +6,7 @@ import os
 from pathlib import Path
 import json
 from dotenv import load_dotenv
-from config import PROMPT_MODEL_CONFIGS, PROMPT_TYPES
-
-def ensure_hf_login():
-    """
-    Ensures that the user is logged in to Hugging Face using an API token from .env
-    """
-    load_dotenv()
-    token = os.getenv('HUGGINGFACE_TOKEN')
-    
-    if not token:
-        print("Hugging Face token not found. Please set the HUGGINGFACE_TOKEN in your .env file.")
-        return
-    
-    login(token)
-    print("Successfully logged in to Hugging Face")
+from config import PROMPT_MODEL_CONFIGS, PROMPT_TYPES, ensure_hf_login
 
 class PromptGenerator:
     # Model and prompt configurations are imported from config.py
@@ -113,11 +99,11 @@ class PromptGenerator:
         # Simple, direct system prompt
         system_prompt = f"""You are an expert prompt engineer. Your task is to create a single system prompt for a chatbot that answers medical questions using the {prompt_type} methodology: {prompt_definition}. Ensure that the system prompt is clear and instructs the chatbot effectively. Only provide the system prompt as the output, do not provide any other text besides the prompt. Do not generate any code, just text for a system prompt."""
         
-        # Print just the system prompt
-        print("\n" + "=" * 40)
-        print("SYSTEM PROMPT:")
-        print(system_prompt)
-        print("=" * 40)
+        # Print a clear header for prompt generation
+        print(f"\n{'='*40} PROMPT GENERATION {'='*40}")
+        print(f"Generating a system prompt for '{prompt_type}' methodology")
+        print(f"Definition: {prompt_definition}")
+        print(f"{'='*90}")
         
         # Check cache for tokenized input
         cache_key = f"{prompt_type}"
@@ -161,11 +147,10 @@ class PromptGenerator:
             # Add the prompt directly, without any cleaning
             prompts.append(prompt)
             
-            # Print the generated prompt
-            print("\n" + "-" * 40)
-            print(f"GENERATED PROMPT ({prompt_type}):")
+            # Print the generated prompt with a clear header
+            print(f"\n{'-'*40} GENERATED PROMPT ({i+1}/{num_prompts}) {'-'*40}")
             print(prompt)
-            print("-" * 40)
+            print(f"{'-'*90}")
         
         return prompts
     

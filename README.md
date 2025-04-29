@@ -32,7 +32,7 @@ This project provides a framework for generating high-quality system prompts tha
 - `config.py`: Contains model configurations and prompt type definitions
 - `prompt_generation.py`: Core implementation of the `PromptGenerator` class
 - `test_pipeline.py`: Command-line interface for running the generator
-- `qa_evaluation.py`: Script for evaluating generated prompts on question-answering datasets
+- `pipeline.py`: Comprehensive pipeline for evaluating generated prompts on question-answering datasets
 
 ## Requirements
 
@@ -79,7 +79,7 @@ python test_pipeline.py --model phi-2 --output_dir outputs/phi2 --num_prompts 3
 Evaluate how well the generated system prompts perform on question-answering tasks:
 
 ```bash
-python qa_evaluation.py --dataset datasets/cleaned/medquad_cleaned.csv --prompts prompts/prompts_medical_qa.json --model phi-2
+python pipeline.py --dataset datasets/cleaned/medquad_cleaned.csv --output results/qa_results.csv --prompt-model phi-2 --answer-model mistral-7b
 ```
 
 ### Available Arguments
@@ -89,12 +89,14 @@ python qa_evaluation.py --dataset datasets/cleaned/medquad_cleaned.csv --prompts
 - `--num_prompts`: Number of prompts to generate per type
 - `--no_auth`: Run without Hugging Face authentication
 
-### Available Arguments for QA Evaluation
+### Available Arguments for Pipeline
 
 - `--dataset`: Path to a CSV file containing question-answer pairs (required)
-- `--prompts`: Path to a JSON file with generated prompts (required)
-- `--model`: LLM to use for answering questions (`phi-2`, `mistral-7b`, etc.)
-- `--output`: Path for the output CSV file (default: `qa_results.csv`)
+- `--output`: Path for the output CSV file (default: `results/qa_results.csv`)
+- `--prompt-model`: Model to use for generating prompts (`phi-2`, `mistral-7b`, etc.)
+- `--answer-model`: Model to use for answering questions (`phi-2`, `mistral-7b`, etc.)
+- `--prompt-types`: Specific prompt types to use (default: all types)
+- `--prompts-per-type`: Number of prompt variations to generate per type (default: 1)
 - `--samples`: Number of question-answer pairs to process (default: all)
 - `--no-auth`: Run without Hugging Face authentication
 
@@ -143,17 +145,17 @@ Example output structure:
 }
 ```
 
-### QA Evaluation Output
+### Pipeline Output
 
-The evaluation script produces a CSV file with these columns:
+The pipeline produces a CSV file with these columns:
 
 - `question`: The original question
 - `correct_answer`: The ground truth answer
-- `prompt_llm`: Which model generated the system prompt
+- `prompt_model`: Which model generated the system prompt
 - `prompt_type`: The type of reasoning (chain-of-thought, etc.)
 - `system_prompt`: The full system prompt text
-- `answering_llm`: Which model generated the answer
-- `llm_answer`: The model's answer to the question
+- `answer_model`: Which model generated the answer
+- `model_answer`: The model's answer to the question
 
 ## Extending the System
 
