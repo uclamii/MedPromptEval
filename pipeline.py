@@ -23,7 +23,7 @@ import argparse
 import pandas as pd
 from tqdm import tqdm
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from prompt_generation import PromptGenerator
 from answer_generation import AnswerGenerator
@@ -36,8 +36,8 @@ class MedicalQAPipeline:
     
     def __init__(
         self, 
-        prompt_model: str = 'phi-2',
-        answer_model: str = 'mistral-7b',
+        prompt_models: Union[str, List[str]] = 'phi-2',
+        answer_models: Union[str, List[str]] = 'mistral-7b',
         prompt_types: List[str] = None,
         prompts_per_type: int = 1,
         use_auth: bool = True
@@ -46,15 +46,21 @@ class MedicalQAPipeline:
         Initialize the pipeline with specified models and parameters.
         
         Args:
-            prompt_model: Model to use for generating system prompts
-            answer_model: Model to use for answering questions
+            prompt_models: Model(s) to use for generating system prompts (single or list)
+            answer_models: Model(s) to use for answering questions (single or list)
             prompt_types: List of prompt types to use (None for all)
             prompts_per_type: Number of prompts to generate per type
             use_auth: Whether to use Hugging Face authentication
         """
+        # Convert single models to lists for consistent handling
+        if isinstance(prompt_models, str):
+            prompt_models = [prompt_models]
+        if isinstance(answer_models, str):
+            answer_models = [answer_models]
+            
         # Set configuration
-        self.prompt_model = prompt_model
-        self.answer_model = answer_model
+        self.prompt_models = prompt_models
+        self.answer_models = answer_models
         self.prompt_types = prompt_types if prompt_types else list(PROMPT_TYPES.keys())
         self.prompts_per_type = prompts_per_type
         self.use_auth = use_auth
@@ -64,17 +70,21 @@ class MedicalQAPipeline:
             ensure_hf_login()
         
         # Initialize models
-        print(f"Initializing {self.prompt_model} for prompt generation...")
-        self.prompt_generator = PromptGenerator(
-            model_key=self.prompt_model,
-            use_auth=self.use_auth
-        )
+        self.prompt_generators = {}
+        for model_key in self.prompt_models:
+            print(f"Initializing {model_key} for prompt generation...")
+            self.prompt_generators[model_key] = PromptGenerator(
+                model_key=model_key,
+                use_auth=self.use_auth
+            )
         
-        print(f"Initializing {self.answer_model} for answer generation...")
-        self.answer_generator = AnswerGenerator(
-            model_key=self.answer_model,
-            use_auth=self.use_auth
-        )
+        self.answer_generators = {}
+        for model_key in self.answer_models:
+            print(f"Initializing {model_key} for answer generation...")
+            self.answer_generators[model_key] = AnswerGenerator(
+                model_key=model_key,
+                use_auth=self.use_auth
+            )
         
     def load_dataset(self, dataset_path: str, num_samples: Optional[int] = None) -> pd.DataFrame:
         """
@@ -150,55 +160,103 @@ class MedicalQAPipeline:
         """
         results = []
         
+        # Create a total progress bar for all combinations
+        total_iterations = len(df) * len(self.prompt_types) * self.prompts_per_type * len(self.prompt_models) * len(self.answer_models)
+        progress_bar = tqdm(total=total_iterations, desc="Overall progress")
+        
+        # Counter for prompt numbering across all questions/models
+        prompt_num = 0
+        
         # Process each question-answer pair
-        for idx, row in tqdm(df.iterrows(), total=len(df), desc="Processing questions"):
-            question = row['question']
-            correct_answer = row['answer']
+        for idx, row in enumerate(df.itertuples(), 1):
+            question = row.question
+            correct_answer = row.answer
             
             # Print question info
             print(f"\n{'#'*100}")
-            print(f"PROCESSING QUESTION {idx+1}/{len(df)}")
+            print(f"PROCESSING QUESTION {idx}/{len(df)}")
             print(f"{'#'*100}")
             print(f"QUESTION: {question}")
             print(f"\n{'='*40} CORRECT ANSWER {'='*40}")
             print(correct_answer)
             print(f"{'='*90}")
             
-            # Process each prompt type
-            for prompt_type in tqdm(self.prompt_types, desc=f"Prompt types for Q{idx+1}", leave=False):
-                print(f"\n{'*'*100}")
-                print(f"GENERATING PROMPTS FOR TYPE: {prompt_type}")
-                print(f"{'*'*100}")
+            # Loop through prompt models
+            for prompt_model_key in self.prompt_models:
+                prompt_generator = self.prompt_generators[prompt_model_key]
+                prompt_model_name = PROMPT_MODEL_CONFIGS[prompt_model_key]["name"]
                 
-                # Generate system prompts
-                system_prompts = self.prompt_generator.generate_prompt(
-                    prompt_type=prompt_type,
-                    num_prompts=self.prompts_per_type
-                )
+                print(f"\n{'@'*100}")
+                print(f"USING PROMPT MODEL: {prompt_model_name}")
+                print(f"{'@'*100}")
                 
-                # Use each prompt to answer the question
-                for i, system_prompt in enumerate(system_prompts):
-                    print(f"\n{'-'*100}")
-                    print(f"PROCESSING PROMPT VARIATION {i+1}/{len(system_prompts)} FOR {prompt_type}")
-                    print(f"{'-'*100}")
+                # Process each prompt type
+                for prompt_type in self.prompt_types:
+                    print(f"\n{'*'*100}")
+                    print(f"GENERATING PROMPTS FOR TYPE: {prompt_type}")
+                    print(f"{'*'*100}")
                     
-                    # Generate answer
-                    print(f"\nGenerating answer using prompt variation {i+1}...")
-                    model_answer = self.answer_generator.generate_answer(
-                        system_prompt=system_prompt,
-                        question=question
-                    )
+                    # Get prompt type definition from config
+                    prompt_definition = PROMPT_TYPES[prompt_type]
                     
-                    # Store result
-                    results.append({
-                        "question": question,
-                        "correct_answer": correct_answer,
-                        "prompt_model": PROMPT_MODEL_CONFIGS[self.prompt_model]["name"],
-                        "prompt_type": prompt_type,
-                        "system_prompt": system_prompt,
-                        "answer_model": ANSWER_MODEL_CONFIGS[self.answer_model]["name"],
-                        "model_answer": model_answer
-                    })
+                    # Construct the actual system prompt used in the prompt_generation.py
+                    generation_system_prompt = f"""You are an expert prompt engineer. Your task is to create a single system prompt for a chatbot that answers medical questions using the {prompt_type} methodology: {prompt_definition}. Ensure that the system prompt is clear and instructs the chatbot effectively. Only provide the system prompt as the output, do not provide any other text besides the prompt. Do not generate any code, just text for a system prompt."""
+                    
+                    # Print the actual system prompt used for generation
+                    print(f"\n{'='*40} SYSTEM PROMPT TEMPLATE {'='*40}")
+                    print(generation_system_prompt)
+                    print(f"{'='*90}")
+                    
+                    # Generate prompts and answer immediately for each one
+                    for i in range(self.prompts_per_type):
+                        # Increment the prompt number
+                        prompt_num += 1
+                        
+                        print(f"\n{'-'*100}")
+                        print(f"GENERATING PROMPT VARIATION {i+1}/{self.prompts_per_type} FOR {prompt_type} (PROMPT #{prompt_num})")
+                        print(f"{'-'*100}")
+                        
+                        # Generate a single system prompt - suppressing the detailed output
+                        system_prompt = prompt_generator.generate_prompt(
+                            prompt_type=prompt_type,
+                            num_prompts=1,
+                            verbose=False
+                        )[0]  # Get the first (and only) prompt
+                        
+                        # Loop through answer models
+                        for answer_model_key in self.answer_models:
+                            answer_generator = self.answer_generators[answer_model_key]
+                            answer_model_name = ANSWER_MODEL_CONFIGS[answer_model_key]["name"]
+                            
+                            print(f"\n{'-'*40} USING ANSWER MODEL: {answer_model_name} {'-'*40}")
+                            
+                            # Generate answer immediately using this prompt
+                            print(f"Generating answer using prompt variation {i+1}...")
+                            model_answer = answer_generator.generate_answer(
+                                system_prompt=system_prompt,
+                                question=question
+                            )
+                            
+                            # Store result
+                            results.append({
+                                "prompt_num": prompt_num,
+                                "question": question,
+                                "correct_answer": correct_answer,
+                                "prompt_model": prompt_model_name,
+                                "prompt_model_key": prompt_model_key,
+                                "prompt_type": prompt_type,
+                                "prompt_variation": i+1,
+                                "system_prompt": system_prompt,
+                                "answer_model": answer_model_name,
+                                "answer_model_key": answer_model_key,
+                                "model_answer": model_answer
+                            })
+                            
+                            # Update progress bar
+                            progress_bar.update(1)
+        
+        # Close the progress bar
+        progress_bar.close()
         
         return results
     
@@ -209,27 +267,47 @@ class MedicalQAPipeline:
         print(f"{'='*100}")
         print(f"Dataset: {dataset_path}")
         print(f"Output: {output_path}")
-        print(f"Prompt generation model: {self.prompt_model}")
-        print(f"Answer generation model: {self.answer_model}")
-        print(f"Prompt types: {self.prompt_types}")
+        print(f"Prompt generation models: {', '.join(self.prompt_models)}")
+        print(f"Answer generation models: {', '.join(self.answer_models)}")
+        print(f"Prompt types: {', '.join(self.prompt_types)}")
         print(f"Prompts per type: {self.prompts_per_type}")
         print(f"Number of samples: {num_samples if num_samples else 'All'}")
         print(f"Using authentication: {self.use_auth}")
+        
+        # Calculate total number of combinations
+        total_combinations = len(self.prompt_models) * len(self.answer_models) * len(self.prompt_types) * self.prompts_per_type
+        total_results = total_combinations * (num_samples if num_samples else len(pd.read_csv(dataset_path)))
+        print(f"Total model combinations: {total_combinations}")
+        print(f"Expected total results: {total_results}")
         print(f"{'='*100}\n")
     
     def _print_summary(self, df: pd.DataFrame, results_df: pd.DataFrame, output_path: str) -> None:
         """Print a summary of the pipeline results."""
+        prompt_model_count = len(self.prompt_models)
+        answer_model_count = len(self.answer_models)
         prompt_type_count = len(self.prompt_types)
-        expected_rows = len(df) * prompt_type_count * self.prompts_per_type
+        expected_rows = len(df) * prompt_model_count * answer_model_count * prompt_type_count * self.prompts_per_type
         
         print(f"\n{'#'*100}")
         print("PIPELINE EXECUTION COMPLETE!")
         print(f"{'#'*100}")
         print(f"Results saved to: {output_path}")
         print(f"Processed {len(df)} questions")
+        print(f"Used {prompt_model_count} prompt models ({', '.join(self.prompt_models)})")
+        print(f"Used {answer_model_count} answer models ({', '.join(self.answer_models)})")
         print(f"Used {prompt_type_count} prompt types ({', '.join(self.prompt_types)})")
         print(f"Generated {len(results_df)} result rows (expected: {expected_rows})")
-        print(f"Used {self.prompt_model} for prompts and {self.answer_model} for answers")
+        
+        # Print a breakdown of results by model combination
+        print(f"\nResults breakdown by model combination:")
+        for prompt_model in self.prompt_models:
+            for answer_model in self.answer_models:
+                combo_df = results_df[
+                    (results_df['prompt_model_key'] == prompt_model) & 
+                    (results_df['answer_model_key'] == answer_model)
+                ]
+                print(f"  - {prompt_model} (prompt) + {answer_model} (answer): {len(combo_df)} results")
+        
         print(f"{'#'*100}")
 
 def main():
@@ -243,12 +321,12 @@ def main():
                         help='Path to CSV dataset with question-answer pairs')
     parser.add_argument('--output', type=str, default='results/qa_results.csv',
                         help='Path for the output CSV file')
-    parser.add_argument('--prompt-model', type=str, default='phi-2',
+    parser.add_argument('--prompt-models', type=str, nargs='+', default=['phi-2'],
                         choices=list(PROMPT_MODEL_CONFIGS.keys()),
-                        help='Model to use for generating prompts')
-    parser.add_argument('--answer-model', type=str, default='mistral-7b',
+                        help='Models to use for generating prompts (multiple allowed)')
+    parser.add_argument('--answer-models', type=str, nargs='+', default=['mistral-7b'],
                         choices=list(ANSWER_MODEL_CONFIGS.keys()),
-                        help='Model to use for answering questions')
+                        help='Models to use for answering questions (multiple allowed)')
     parser.add_argument('--prompt-types', type=str, nargs='+',
                         choices=list(PROMPT_TYPES.keys()), default=None,
                         help='Prompt types to use (default: all)')
@@ -263,8 +341,8 @@ def main():
     
     # Initialize and run the pipeline
     pipeline = MedicalQAPipeline(
-        prompt_model=args.prompt_model,
-        answer_model=args.answer_model,
+        prompt_models=args.prompt_models,
+        answer_models=args.answer_models,
         prompt_types=args.prompt_types,
         prompts_per_type=args.prompts_per_type,
         use_auth=not args.no_auth

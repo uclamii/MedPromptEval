@@ -8,9 +8,10 @@ generating answers to medical questions using various LLMs and system prompts.
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from typing import Dict, List
+from typing import Dict, List, Tuple, Any
 import os
 from pathlib import Path
+import json
 from huggingface_hub import login
 from dotenv import load_dotenv
 
@@ -201,4 +202,92 @@ class AnswerGenerator:
             )
             answers.append(answer)
         
-        return answers 
+        return answers
+    
+    def generate_and_save_answers(
+        self,
+        questions: List[str],
+        system_prompts: List[str],
+        output_dir: str,
+        correct_answers: List[str] = None,
+        prompt_types: List[str] = None,
+        prompt_model_name: str = None
+    ) -> Dict[str, Any]:
+        """
+        Generate answers for a list of questions and save the results to a JSON file.
+        
+        Args:
+            questions: List of questions to answer
+            system_prompts: Corresponding list of system prompts to use
+            output_dir: Directory to save the JSON output
+            correct_answers: Optional list of correct answers for evaluation
+            prompt_types: Optional list of prompt types used for each system prompt
+            prompt_model_name: Optional name of the model used to generate prompts
+            
+        Returns:
+            Dictionary with all generated answers and metadata
+        """
+        if len(system_prompts) != len(questions):
+            raise ValueError("The number of system prompts must match the number of questions")
+        
+        if correct_answers and len(correct_answers) != len(questions):
+            raise ValueError("The number of correct answers must match the number of questions")
+        
+        if prompt_types and len(prompt_types) != len(questions):
+            raise ValueError("The number of prompt types must match the number of questions")
+        
+        # Create output directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Add metadata
+        metadata = {
+            "model_info": {
+                "name": self.model_config["name"],
+                "description": self.model_config["description"]
+            }
+        }
+        
+        if prompt_model_name:
+            metadata["prompt_model"] = prompt_model_name
+        
+        print(f"\nGenerating answers using {self.model_config['name']} on {self.device}")
+        
+        # Generate and store answers
+        results = []
+        for i, (question, system_prompt) in enumerate(zip(questions, system_prompts)):
+            print(f"\nProcessing question {i+1}/{len(questions)}")
+            
+            answer = self.generate_answer(
+                system_prompt=system_prompt,
+                question=question
+            )
+            
+            result = {
+                "question": question,
+                "system_prompt": system_prompt,
+                "answer": answer
+            }
+            
+            if correct_answers:
+                result["correct_answer"] = correct_answers[i]
+            
+            if prompt_types:
+                result["prompt_type"] = prompt_types[i]
+            
+            results.append(result)
+        
+        # Create final JSON structure
+        output_json = {
+            "metadata": metadata,
+            "results": results
+        }
+        
+        # Save output to JSON file
+        file_name = f"answers_{self.model_key}_{len(questions)}_questions.json"
+        json_path = os.path.join(output_dir, file_name)
+        with open(json_path, 'w') as f:
+            json.dump(output_json, f, indent=2)
+        
+        print(f"\nGeneration complete. Answers saved to {json_path}")
+        
+        return output_json 
