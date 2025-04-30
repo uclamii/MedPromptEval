@@ -53,8 +53,10 @@ Medical question answering requires both accuracy and appropriate explanation. T
 - `metrics_evaluator.py`: Evaluation module for comparing model answers with ground truth
 - `pipeline.py`: Comprehensive pipeline for evaluating generated prompts on question-answering datasets
 - `test_pipeline.py`: Command-line interface for running the generator
+- `visualizer.py`: Visualization tools for analyzing evaluation results
 - `datasets/`: Directory containing medical QA datasets
 - `results/`: Output directory for evaluation results
+- `visualizations/`: Generated charts and plots from analysis
 
 ## Requirements
 
@@ -70,6 +72,7 @@ Medical question answering requires both accuracy and appropriate explanation. T
 - sentence_transformers (for semantic embedding)
 - textstat (for readability metrics)
 - textblob (for sentiment analysis)
+- matplotlib, seaborn (for data visualization)
 
 ## Installation
 
@@ -81,7 +84,7 @@ Medical question answering requires both accuracy and appropriate explanation. T
    
    Alternatively, install individual packages:
    ```
-   pip install torch transformers huggingface_hub python-dotenv pandas tqdm colorama nltk rouge bert_score sentence_transformers textstat textblob
+   pip install torch transformers huggingface_hub python-dotenv pandas tqdm colorama nltk rouge bert_score sentence_transformers textstat textblob matplotlib seaborn
    ```
 
 3. Create a `.env` file in the root directory with your Hugging Face token:
@@ -342,6 +345,77 @@ When verbose mode is enabled (default), metrics are displayed with color coding 
 - Red: Poor scores
 
 This provides immediate visual feedback on answer quality during evaluation.
+
+## Analyzing Results
+
+The evaluation results are saved to CSV files with comprehensive metrics. You can analyze these results using:
+
+1. **Spreadsheet Applications**: Open in Excel, Google Sheets, etc. for basic filtering and visualization
+2. **Data Analysis Libraries**: Use pandas, matplotlib, or other Python libraries for advanced analysis
+3. **Built-in Visualization Tools**: Use the provided `visualizer.py` module for comprehensive visual analysis
+
+### Using the Visualizer
+
+The framework includes a powerful visualization module to help analyze and interpret evaluation results:
+
+```bash
+# Generate a comprehensive report with all visualizations
+python visualizer.py --results results/qa_results.csv --output-dir visualizations
+
+# Generate specific visualization types
+python visualizer.py --results results/qa_results.csv --report-type basic
+python visualizer.py --results results/qa_results.csv --report-type metrics
+python visualizer.py --results results/qa_results.csv --report-type prompts
+
+# Analyze a specific model's performance
+python visualizer.py --results results/qa_results.csv --report-type model --model mistral-7b
+```
+
+Available report types:
+- `comprehensive`: Generate all visualizations (default)
+- `basic`: Basic model and prompt type comparisons
+- `metrics`: Focus on metric distributions and correlations
+- `model`: Detailed analysis of a specific model
+- `prompts`: Analysis of prompt types and question difficulty
+
+### Visualization Capabilities
+
+The visualizer creates multiple types of charts and analyses:
+
+1. **Model Comparisons**: Bar charts comparing performance across different models
+2. **Prompt Type Analysis**: Compare the effectiveness of different prompt methodologies
+3. **Heatmaps**: Visualize performance across combinations of prompt and answer models
+4. **Metric Distributions**: Understand the distribution of metric scores
+5. **Correlation Matrices**: See relationships between different metrics
+6. **Question Difficulty Analysis**: Identify which questions are hardest/easiest
+7. **Per-Model Reports**: Detailed performance reports for each model
+
+All visualizations are saved as high-quality PNG files in the specified output directory.
+
+### Using the Visualizer in Python Code
+
+You can also use the visualizer programmatically:
+
+```python
+from visualizer import ResultsVisualizer
+
+# Initialize the visualizer
+visualizer = ResultsVisualizer(
+    results_path="results/qa_results.csv",
+    output_dir="visualizations"
+)
+
+# Generate specific visualizations
+visualizer.plot_model_comparison(metric="answer_similarity")
+visualizer.plot_prompt_type_comparison()
+visualizer.plot_heatmap(metric="entailment_score")
+visualizer.plot_metric_distributions(by_column="answer_model")
+visualizer.plot_correlation_matrix()
+visualizer.plot_question_difficulty()
+
+# Generate a comprehensive report
+visualizer.generate_comprehensive_report()
+```
 
 ## Extending the System
 
