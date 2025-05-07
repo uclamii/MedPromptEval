@@ -74,10 +74,12 @@ Medical question answering requires both accuracy and appropriate explanation. T
 - tqdm
 - colorama (for terminal output formatting)
 - nltk, rouge, bert_score (for NLP metrics)
-- sentence_transformers (for semantic embedding)
+- sentence-transformers (for semantic embedding)
 - textstat (for readability metrics)
 - textblob (for sentiment analysis)
 - matplotlib, seaborn (for data visualization)
+- scipy (for statistical analysis)
+- numpy (for numerical operations)
 
 ## Installation
 
@@ -89,7 +91,7 @@ Medical question answering requires both accuracy and appropriate explanation. T
    
    Alternatively, install individual packages:
    ```
-   pip install torch transformers huggingface_hub python-dotenv pandas tqdm colorama nltk rouge bert_score sentence_transformers textstat textblob matplotlib seaborn
+   pip install torch transformers huggingface_hub python-dotenv pandas tqdm colorama nltk rouge bert_score sentence_transformers textstat textblob matplotlib seaborn scipy numpy
    ```
 
 3. Create a `.env` file in the root directory with your Hugging Face token:
@@ -232,13 +234,19 @@ The system uses two separate model configurations to optimize for different task
 
 1. **PROMPT_MODEL_CONFIGS**: Models optimized for prompt generation
    - Higher temperature (0.7) for creativity
-   - Balanced top_p and top_k for diverse suggestions
+   - Balanced top_p (0.9) and top_k (50) for diverse suggestions
    - Shorter output (512 tokens) focused on system prompt creation
+   - Higher repetition penalty (1.2) to avoid repetitive patterns
+   - Optimized for generating structured, clear instructions
 
 2. **ANSWER_MODEL_CONFIGS**: Models optimized for answering medical questions
    - Lower temperature (0.3) for factual, precise answers
    - Higher max_new_tokens (1024) for more detailed responses
-   - Tuned repetition penalty for natural but focused answers
+   - Lower top_p (0.7) and top_k (40) for more focused outputs
+   - Balanced repetition penalty (1.1) for natural but focused answers
+   - Optimized for generating comprehensive, accurate medical explanations
+
+Each model configuration can be customized in `config.py` to fine-tune the generation parameters for specific use cases.
 
 ## Output
 
@@ -310,27 +318,29 @@ This indicates that:
 
 ### Metrics Evaluation
 
-The system includes a metrics evaluation component that analyzes the quality of generated answers using various NLP techniques. This allows for quantitative assessment of model performance without requiring external APIs.
+The system includes a comprehensive metrics evaluation component that analyzes the quality of generated answers using various NLP techniques. This allows for quantitative assessment of model performance without requiring external APIs.
 
 #### Available Metrics
 
 The metrics evaluator provides the following metrics:
 
-**NLP Metrics:**
+**Semantic and Relevance Metrics:**
 - `semantic_similarity`: Cosine similarity between question and answer embeddings (relevance)
 - `answer_similarity`: Cosine similarity between model answer and correct answer
-- `answer_length`: Number of words in the answer
-- `flesch_reading_ease`: Readability score (higher = easier to read)
-- `flesch_kincaid_grade`: US grade level required to understand the text
-- `sentiment_polarity`: Sentiment of the answer (-1 to +1)
-- `sentiment_subjectivity`: Subjectivity of the answer (0 to 1)
+- `entailment_score`: Score indicating whether the model answer entails (is consistent with) the correct answer
+- `entailment_label`: Classification label: "entailment", "neutral", or "contradiction"
 
 **Text Comparison Metrics:**
 - `rouge1_f`, `rouge2_f`, `rougeL_f`: ROUGE metrics for text overlap assessment
 - `bleu_score`: BLEU score for measuring precision
 - `bertscore_precision`, `bertscore_recall`, `bertscore_f1`: BERTScore metrics for semantic evaluation
-- `entailment_score`: Score indicating whether the model answer entails (is consistent with) the correct answer
-- `entailment_label`: Classification label: "entailment", "neutral", or "contradiction"
+
+**Readability and Style Metrics:**
+- `answer_length`: Number of words in the answer
+- `flesch_reading_ease`: Readability score (higher = easier to read)
+- `flesch_kincaid_grade`: US grade level required to understand the text
+- `sentiment_polarity`: Sentiment of the answer (-1 to +1)
+- `sentiment_subjectivity`: Subjectivity of the answer (0 to 1)
 
 **Comparative Metrics:**
 - `comparison_answer_length_delta`: Difference in length between model and correct answers
