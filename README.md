@@ -363,11 +363,17 @@ The evaluation results are saved to CSV files with comprehensive metrics. You ca
 
 ### Using the Visualizer
 
-The framework includes a powerful visualization module to help analyze and interpret evaluation results:
+The framework includes a powerful visualization module to help analyze and interpret evaluation results. By default, visualizations are saved in the `results/visualizations` directory, but you can customize the output location and organization:
 
 ```bash
-# Generate a comprehensive report with all visualizations
-python visualizer.py --results results/qa_results.csv --output-dir visualizations
+# Generate a comprehensive report with all visualizations (default location)
+python visualizer.py --results results/qa_results.csv
+
+# Generate visualizations in a specific subfolder
+python visualizer.py --results results/qa_results.csv --subfolder model_analysis
+
+# Generate visualizations in a custom directory and subfolder
+python visualizer.py --results results/qa_results.csv --output-dir results/analysis --subfolder prompt_analysis
 
 # Generate specific visualization types
 python visualizer.py --results results/qa_results.csv --report-type basic
@@ -378,7 +384,20 @@ python visualizer.py --results results/qa_results.csv --report-type prompts
 python visualizer.py --results results/qa_results.csv --report-type model --model mistral-7b
 ```
 
-Available report types:
+#### Output Organization
+
+Visualizations are organized in the following structure:
+```
+results/
+  visualizations/              # Default output directory
+    [subfolder if specified]/  # Optional subfolder for organization
+      model_comparison_by_answer_similarity.png
+      prompt_type_comparison_multi_metric.png
+      ...
+```
+
+#### Available Report Types
+
 - `comprehensive`: Generate all visualizations (default)
 - `basic`: Basic model and prompt type comparisons
 - `metrics`: Focus on metric distributions and correlations
@@ -406,10 +425,16 @@ You can also use the visualizer programmatically:
 ```python
 from visualizer import ResultsVisualizer
 
-# Initialize the visualizer
+# Initialize the visualizer with default settings
+visualizer = ResultsVisualizer(
+    results_path="results/qa_results.csv"
+)
+
+# Initialize with custom output organization
 visualizer = ResultsVisualizer(
     results_path="results/qa_results.csv",
-    output_dir="visualizations"
+    output_dir="results/analysis",
+    subfolder="model_comparison"
 )
 
 # Generate specific visualizations
@@ -523,4 +548,114 @@ This framework can be used for:
 
 ## License
 
-[MIT License](LICENSE) 
+[MIT License](LICENSE)
+
+## Results Analysis
+
+After the pipeline completes, it automatically analyzes the results to find the best combinations of models and prompt types. The analysis:
+
+1. Normalizes all metrics to a 0-1 scale for fair comparison
+2. Groups metrics into weighted categories:
+   - Semantic similarity (30%): How well the answer matches the reference
+   - Answer similarity (20%): How similar the answer is to the reference
+   - ROUGE scores (15%): Text overlap metrics
+   - BERTScore (15%): BERT-based semantic similarity
+   - Entailment (20%): Logical consistency
+3. Calculates overall scores for each combination
+4. Provides detailed reasoning for why each combination performed well
+
+### Analysis Output
+
+The analysis results are saved in two formats:
+
+1. **CSV File** (`results/your_results.csv`):
+   - Contains all raw results with individual metrics
+   - Includes all prompt variations and model combinations
+   - Preserves full text of prompts and answers
+
+2. **Analysis JSON** (`results/your_results.analysis.json`):
+   ```json
+   {
+     "best_combinations": [
+       {
+         "prompt_model": "model_name",
+         "answer_model": "model_name",
+         "prompt_type": "prompt_type",
+         "scores": {
+           "overall": 0.85,
+           "semantic_similarity": 0.90,
+           "answer_similarity": 0.85,
+           "rouge_scores": 0.80,
+           "bertscore": 0.88,
+           "entailment": 0.82
+         },
+         "reasoning": "Detailed explanation of why this combination performed well"
+       }
+     ],
+     "metric_weights": {
+       "semantic_similarity": 0.3,
+       "answer_similarity": 0.2,
+       "rouge_scores": 0.15,
+       "bertscore": 0.15,
+       "entailment": 0.2
+     },
+     "analysis_summary": {
+       "total_combinations": 100,
+       "best_overall_score": 0.85,
+       "average_overall_score": 0.75
+     }
+   }
+   ```
+
+### Command Line Options
+
+The pipeline includes these additional options for results analysis:
+
+- `--no-analysis`: Disable automatic results analysis after pipeline completion
+- `--no-metrics`: Disable metrics evaluation (also disables analysis)
+- `--exclude-long-text`: Exclude long text fields from CSV output
+
+### Example Usage
+
+```bash
+# Run pipeline with automatic analysis
+python pipeline.py \
+  --dataset datasets/cleaned/your_dataset.csv \
+  --output results/your_results.csv \
+  --prompt-models phi-2 mistral-7b \
+  --answer-models phi-2 mistral-7b \
+  --prompt-types "chain of thought" "role based" \
+  --prompts-per-type 2 \
+  --num-questions 10
+
+# Run pipeline without analysis
+python pipeline.py \
+  --dataset datasets/cleaned/your_dataset.csv \
+  --output results/your_results.csv \
+  --no-analysis
+```
+
+### Analysis Output Example
+
+When the pipeline completes, you'll see a summary like this:
+
+```
+Top 5 Best Combinations:
+================================================================================
+
+1. mistral-7b → phi-2 (chain of thought)
+   Overall Score: 0.853
+   Reasoning: Excellent semantic similarity with reference answers | High answer similarity indicating good content matching | The mistral-7b model generated effective prompts for the chain of thought methodology | The phi-2 model produced high-quality answers based on these prompts
+--------------------------------------------------------------------------------
+
+2. phi-2 → mistral-7b (role based)
+   Overall Score: 0.842
+   Reasoning: Strong text overlap with reference answers | High BERT-based semantic similarity | The phi-2 model generated effective prompts for the role based methodology | The mistral-7b model produced high-quality answers based on these prompts
+--------------------------------------------------------------------------------
+```
+
+This analysis helps you:
+1. Identify the most effective model combinations
+2. Understand which prompt types work best
+3. See detailed metrics for each combination
+4. Get explanations for why certain combinations performed well 

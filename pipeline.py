@@ -257,31 +257,21 @@ class MedicalQAPipeline:
                     print(f"GENERATING PROMPTS FOR TYPE: {prompt_type}")
                     print(f"{'*'*100}")
                     
-                    # Get prompt type definition from config
-                    prompt_definition = PROMPT_TYPES[prompt_type]
+                    # Generate prompts for this type
+                    prompts = prompt_generator.generate_prompt(
+                        prompt_type=prompt_type,
+                        num_prompts=self.prompts_per_type,
+                        verbose=False
+                    )
                     
-                    # Construct the actual system prompt used in the prompt_generation.py
-                    generation_system_prompt = f"""You are an expert prompt engineer. Your task is to create a single system prompt for a chatbot that answers medical questions using the {prompt_type} methodology: {prompt_definition}. Ensure that the system prompt is clear and instructs the chatbot effectively. Only provide the system prompt as a text output, do not provide any other text besides the prompt. Do not generate any code. """                    
-                    # Print the actual system prompt used for generation
-                    print(f"\n{'='*40} SYSTEM PROMPT TEMPLATE {'='*40}")
-                    print(generation_system_prompt)
-                    print(f"{'='*90}")
-                    
-                    # Generate prompts and answer immediately for each one
-                    for i in range(self.prompts_per_type):
+                    # Process each generated prompt
+                    for i, system_prompt in enumerate(prompts):
                         # Increment the prompt number
                         prompt_num += 1
                         
                         print(f"\n{'-'*100}")
-                        print(f"GENERATING PROMPT VARIATION {i+1}/{self.prompts_per_type} FOR {prompt_type} (PROMPT #{prompt_num})")
+                        print(f"PROCESSING PROMPT VARIATION {i+1}/{self.prompts_per_type} FOR {prompt_type} (PROMPT #{prompt_num})")
                         print(f"{'-'*100}")
-                        
-                        # Generate a single system prompt - suppressing the detailed output
-                        system_prompt = prompt_generator.generate_prompt(
-                            prompt_type=prompt_type,
-                            num_prompts=1,
-                            verbose=False
-                        )[0]  # Get the first (and only) prompt
                         
                         # Loop through answer models
                         for answer_model_key in self.answer_models:

@@ -89,7 +89,8 @@ class PromptGenerator:
         self,
         prompt_type: str,
         num_prompts: int = 1,
-        verbose: bool = True
+        verbose: bool = True,
+        max_retries: int = 3
     ) -> List[str]:
         """
         Generate prompts for a specific prompt type.
@@ -98,6 +99,7 @@ class PromptGenerator:
             prompt_type: Type of prompt to generate
             num_prompts: Number of prompts to generate
             verbose: Whether to print detailed generation information
+            max_retries: Maximum number of retries for empty prompts
             
         Returns:
             List of generated prompts
@@ -106,7 +108,7 @@ class PromptGenerator:
         prompt_definition = self.PROMPT_TYPES[prompt_type]
         
         # Simple, direct system prompt
-        system_prompt = f"""You are an expert prompt engineer. Your task is to create a single system prompt for a chatbot that answers medical questions using the {prompt_type} methodology: {prompt_definition}. Ensure that the system prompt is clear and instructs the chatbot effectively. Only provide the system prompt as the output, do not provide any other text besides the prompt. Do not generate any code, just text for a system prompt."""
+        system_prompt = f"""Generate a system prompt for a medical chatbot that answers user questions using the {prompt_type} methodology, defined as: {prompt_definition}. The system prompt should clearly instruct the chatbot on how to respond according to this methodology. Return only the system prompt text—do not include explanations, code, or any additional output."""        
         
         # Print a clear header for prompt generation if verbose
         if verbose:
@@ -144,17 +146,35 @@ class PromptGenerator:
                 "eos_token_id": self.tokenizer.eos_token_id
             }
             
-            # Generate text
-            with torch.no_grad():
-                outputs = self.model.generate(**inputs, **generation_config)
+            # Try generating with retries if needed
+            prompt = ""
+            retry_count = 0
+            while not prompt.strip() and retry_count < max_retries:
+                # Generate text
+                with torch.no_grad():
+                    outputs = self.model.generate(**inputs, **generation_config)
+                
+                # Process the generated text
+                generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+                
+                # Extract the prompt by removing the system prompt template
+                prompt = generated_text.replace(system_prompt, "").strip()
+                
+                # If prompt is empty, increase temperature for next retry
+                if not prompt.strip():
+                    retry_count += 1
+                    if retry_count < max_retries:
+                        generation_config["temperature"] = min(1.0, generation_config["temperature"] + 0.1)
+                        if verbose:
+                            print(f"Empty prompt generated, retrying with higher temperature ({generation_config['temperature']})...")
             
-            # Process the generated text
-            generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            # If still empty after retries, use a fallback prompt
+            if not prompt.strip():
+                prompt = f"You are a medical AI assistant. When answering medical questions, use the {prompt_type} methodology: {prompt_definition}. Provide clear, accurate, and helpful responses."
+                if verbose:
+                    print("Using fallback prompt after max retries")
             
-            # Simply remove the system prompt to get the generated text
-            prompt = generated_text.replace(system_prompt, "").strip()
-            
-            # Add the prompt directly, without any cleaning
+            # Add the prompt
             prompts.append(prompt)
             
             # Print the generated prompt with a clear header if verbose

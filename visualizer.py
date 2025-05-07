@@ -24,7 +24,8 @@ class ResultsVisualizer:
     def __init__(
         self, 
         results_path: str,
-        output_dir: str = "visualizations",
+        output_dir: str = "results/visualizations",
+        subfolder: str = None,
         palette: str = "viridis"
     ):
         """
@@ -32,16 +33,24 @@ class ResultsVisualizer:
         
         Args:
             results_path: Path to the CSV file containing results
-            output_dir: Directory to save visualizations
+            output_dir: Base directory to save visualizations (default: results/visualizations)
+            subfolder: Optional subfolder within output_dir to organize visualizations
             palette: Color palette for plots (seaborn palette name)
         """
         self.results_path = results_path
-        self.output_dir = output_dir
+        self.base_output_dir = output_dir
+        self.subfolder = subfolder
         self.palette = palette
         self.df = None
         
+        # Set up the full output directory path
+        if subfolder:
+            self.output_dir = os.path.join(output_dir, subfolder)
+        else:
+            self.output_dir = output_dir
+            
         # Create output directory if it doesn't exist
-        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(self.output_dir, exist_ok=True)
         
         # Load the results
         self._load_results()
@@ -67,6 +76,23 @@ class ResultsVisualizer:
         plt.rcParams['figure.figsize'] = (12, 8)
         plt.rcParams['font.size'] = 11
     
+    def _sanitize_filename(self, filename: str) -> str:
+        """
+        Sanitize a string to be used as a filename by replacing invalid characters.
+        
+        Args:
+            filename: The string to sanitize
+            
+        Returns:
+            Sanitized string safe for use in filenames
+        """
+        # Replace forward slashes and backslashes with underscores
+        filename = filename.replace('/', '_').replace('\\', '_')
+        # Replace other potentially problematic characters
+        filename = filename.replace(':', '_').replace('*', '_').replace('?', '_')
+        filename = filename.replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
+        return filename
+
     def _save_figure(self, filename: str, tight_layout: bool = True) -> None:
         """
         Save the current figure to the output directory.
@@ -78,7 +104,13 @@ class ResultsVisualizer:
         if tight_layout:
             plt.tight_layout()
         
-        output_path = os.path.join(self.output_dir, f"{filename}.png")
+        # Sanitize the filename
+        safe_filename = self._sanitize_filename(filename)
+        output_path = os.path.join(self.output_dir, f"{safe_filename}.png")
+        
+        # Ensure the output directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         print(f"Saved visualization to {output_path}")
     
@@ -274,7 +306,7 @@ class ResultsVisualizer:
         
         # Set overall title
         fig.suptitle(
-            f'Distribution of Metrics{f" by {by_column.replace("_", " ").title()}" if by_column else ""}',
+            f'Distribution of Metrics{" by " + by_column.replace("_", " ").title() if by_column else ""}',
             fontsize=16
         )
         
@@ -553,8 +585,10 @@ if __name__ == "__main__":
     
     parser.add_argument('--results', type=str, required=True,
                        help='Path to results CSV file')
-    parser.add_argument('--output-dir', type=str, default='visualizations',
-                       help='Directory to save visualizations')
+    parser.add_argument('--output-dir', type=str, default='results/visualizations',
+                       help='Base directory to save visualizations')
+    parser.add_argument('--subfolder', type=str, default=None,
+                       help='Optional subfolder within output directory to organize visualizations')
     parser.add_argument('--report-type', type=str, default='comprehensive',
                        choices=['comprehensive', 'basic', 'model', 'metrics', 'prompts'],
                        help='Type of report to generate')
@@ -569,7 +603,8 @@ if __name__ == "__main__":
     # Create visualizer
     visualizer = ResultsVisualizer(
         results_path=args.results,
-        output_dir=args.output_dir
+        output_dir=args.output_dir,
+        subfolder=args.subfolder
     )
     
     # Generate appropriate report based on type
