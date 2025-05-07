@@ -187,7 +187,7 @@ class MetricsEvaluator:
             question: The question
             model_answer: The model's answer
             correct_answer: The correct answer
-        
+            
         Returns:
             Dictionary of NLP metrics
         """
@@ -244,7 +244,7 @@ class MetricsEvaluator:
         # Check entailment between model answer and correct answer
         entailment_results = self.check_entailment(model_answer, correct_answer)
         metrics.update(entailment_results)
-
+        
         return metrics
     
     def evaluate_answer(
@@ -453,7 +453,7 @@ class MetricsEvaluator:
         Args:
             question: The question
             correct_answer: The correct answer
-            
+        
         Returns:
             Dictionary of metrics for the correct answer
         """
@@ -481,9 +481,9 @@ class MetricsEvaluator:
         sentiment = TextBlob(correct_answer).sentiment
         metrics['sentiment_polarity'] = sentiment.polarity
         metrics['sentiment_subjectivity'] = sentiment.subjectivity
-        
+
         return metrics
-    
+
     def get_metrics_documentation(self) -> Dict[str, List[Dict[str, str]]]:
         """
         Get documentation for all metrics used in the evaluator.

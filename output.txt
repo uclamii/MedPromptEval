@@ -168,3 +168,61 @@ Summary
   • Substantially different from correct answer
 
 ====================================================================================================
+
+
+
+####################################################################################################
+PIPELINE EXECUTION COMPLETE!
+####################################################################################################
+Results saved to: results/comprehensive_test.csv
+Processed 1 questions
+Used 1 prompt models (openbiollm-8b)
+Used 1 answer models (openbiollm-8b)
+Used 2 prompt types (self consistency, tree of thoughts)
+Generated 2 result rows (expected: 2)
+
+Results breakdown by model combination:
+  - openbiollm-8b (prompt) + openbiollm-8b (answer): 2 results
+
+Metrics summary:
+
+  NLP Metrics (7/7 metrics):
+    - Average semantic_similarity: 0.7073
+    - Average answer_similarity: 0.4146
+    - Average answer_length: 49.5000
+    - Average flesch_reading_ease: 12.5150
+    - Average flesch_kincaid_grade: 17.6500
+    - Average sentiment_polarity: 0.0344
+    - Average sentiment_subjectivity: 0.4194
+
+  Text Comparison (9/9 metrics):
+    - Average rouge1_f: 0.2370
+    - Average rouge2_f: 0.0394
+    - Average rougeL_f: 0.2032
+    - Average bleu_score: 0.0016
+    - Average bertscore_precision: 0.0849
+    - Average bertscore_recall: -0.1013
+    - Average bertscore_f1: -0.0083
+    - Average entailment_score: 0.5992
+
+  Comparative Metrics (18/18 metrics):
+    - Average comparison_answer_length_delta: -119.5000
+    - Average comparison_answer_length_pct_change: -70.7101
+    - Average comparison_flesch_reading_ease_delta: -12.1650
+    - Average comparison_flesch_reading_ease_pct_change: -49.2909
+    - Average comparison_flesch_kincaid_grade_delta: 2.5500
+    - Average comparison_flesch_kincaid_grade_pct_change: 16.8874
+    - Average comparison_sentiment_polarity_delta: -0.0677
+    - Average comparison_sentiment_polarity_pct_change: -66.3125
+    - Average comparison_sentiment_subjectivity_delta: -0.0230
+    - Average comparison_sentiment_subjectivity_pct_change: -5.1932
+    - Average comparison_relevance_delta: 0.4442
+
+  Reference Metrics (6/6 metrics):
+    - Average correct_semantic_similarity: 0.2630
+    - Average correct_answer_length: 169.0000
+    - Average correct_flesch_reading_ease: 24.6800
+    - Average correct_flesch_kincaid_grade: 15.1000
+    - Average correct_sentiment_polarity: 0.1020
+    - Average correct_sentiment_subjectivity: 0.4423
+####################################################################################################

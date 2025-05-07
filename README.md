@@ -21,8 +21,13 @@ Medical question answering requires both accuracy and appropriate explanation. T
   - Phi-2
   - Mistral-7B
   - Llama-3-8B
+  - Llama-3.2-1B
+  - DeepSeek-R1-Distill-Qwen-1.5B
+  - Qwen3-1.7B
+  - Gemma-3-1B-IT
+  - Granite-3.3-2B
   - Gemma-2-2B
-  - OpenBioLLM
+  - OpenBioLLM-8B
 - Generates prompts using various reasoning methodologies:
   - Chain of Thought: Step-by-step reasoning through medical concepts
   - Trigger Chain of Thought: Using prompts that elicit medical reasoning
@@ -129,26 +134,12 @@ python pipeline.py --dataset datasets/cleaned/medquad_cleaned.csv --output resul
 For comprehensive multi-model evaluation, specify multiple models:
 
 ```bash
-python pipeline.py --dataset datasets/cleaned/medquad_cleaned.csv --output results/multi_model_results.csv --prompt-models phi-2 mistral-7b --answer-models phi-2 mistral-7b llama-3-8b --prompt-types "chain of thought" "self consistency" --prompts-per-type 2 --num-questions 5
+python pipeline.py --dataset datasets/cleaned/medquad.csv --output results/multi_model_results.csv --prompt-models phi-2 mistral-7b --answer-models phi-2 mistral-7b llama-3-8b --prompt-types "chain of thought" "self consistency" --prompts-per-type 2 --num-questions 5
 ```
 
 This example would test:
 - 2 prompt models × 3 answer models × 2 prompt types × 2 prompts per type = 24 combinations per question
 - Across 5 sample questions, resulting in 120 total evaluations
-
-### Memory Efficiency Options
-
-For running on machines with limited memory, you can disable metrics evaluation entirely:
-
-```bash
-python pipeline.py --dataset datasets/cleaned/medquad_cleaned.csv --output results/no_metrics.csv --no-metrics
-```
-
-Or just disable the DeepEval metrics which are more memory-intensive:
-
-```bash
-python pipeline.py --dataset datasets/cleaned/medquad_cleaned.csv --output results/basic_metrics.csv --no-deepeval
-```
 
 ### Workflow Examples
 
@@ -175,12 +166,26 @@ python pipeline.py \
   --dataset datasets/cleaned/medquad_cleaned.csv \
   --output results/model_comparison.csv \
   --prompt-models phi-2 \
-  --answer-models phi-2 mistral-7b llama-3-8b gemma-2-2b openbiollm-8b \
+  --answer-models phi-2 mistral-7b llama-3-8b llama-3.2-1b deepseek-qwen-1.5b qwen3-1.7b gemma-3-1b-it granite-3.3-2b gemma-2-2b openbiollm-8b \
   --prompt-types "chain of thought" \
   --num-questions 25
 ```
 
-#### Example 3: Optimizing for Low-Resource Environments
+#### Example 3: Comprehensive Evaluation Across All Models and Prompt Types
+
+```bash
+# Run with all available models and prompt types
+python pipeline.py \
+  --dataset datasets/cleaned/medquad_cleaned.csv \
+  --output results/comprehensive_evaluation.csv \
+  --prompt-models phi-2 mistral-7b llama-3-8b llama-3.2-1b deepseek-qwen-1.5b qwen3-1.7b gemma-3-1b-it granite-3.3-2b gemma-2-2b openbiollm-8b \
+  --answer-models phi-2 mistral-7b llama-3-8b llama-3.2-1b deepseek-qwen-1.5b qwen3-1.7b gemma-3-1b-it granite-3.3-2b gemma-2-2b openbiollm-8b \
+  --prompt-types "chain of thought" "trigger chain of thought" "self consistency" "prompt chaining" "react" "tree of thoughts" "role based" "metacognitive prompting" "uncertainty based prompting" "guided prompting" \
+  --prompts-per-type 2 \
+  --num-questions 10
+```
+
+#### Example 4: Optimizing for Low-Resource Environments
 
 ```bash
 # Run with minimal memory usage
@@ -216,6 +221,7 @@ python pipeline.py \
 - `--num-questions`: Number of question-answer pairs to process (default: all)
 - `--no-auth`: Run without Hugging Face authentication
 - `--no-metrics`: Disable all metrics evaluation
+- `--no-deepeval`: Disable DeepEval metrics to reduce memory usage while still calculating basic NLP metrics
 - `--exclude-long-text`: Exclude long text fields from CSV output
 - `--no-verbose`: Disable colorized metrics display in the terminal
 - `--list-metrics`: List all available metrics with descriptions and exit
@@ -289,6 +295,7 @@ The pipeline writes results to the CSV file incrementally after each question-an
 - **Crash resistance**: If the pipeline is interrupted or crashes, all processed results up to that point are already saved
 - **Progress visibility**: You can open the CSV file while the pipeline is running to see current results
 - **Reduced memory usage**: The pipeline doesn't need to keep all results in memory
+- **Reliable execution**: Even with large-scale evaluations across multiple models, your results are saved as they're generated
 
 After each result is processed, you'll see output like this:
 ```

@@ -74,6 +74,91 @@ PROMPT_MODEL_CONFIGS = {
             "trust_remote_code": True
         }
     },
+    "llama-3.2-1b": {
+        "name": "meta-llama/Llama-3.2-1B",
+        "description": "Meta's Llama 3.2 1B model, good for efficient processing with decent quality",
+        "max_new_tokens": 512,
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 50,
+        "repetition_penalty": 1.1,
+        "model_kwargs": {
+            "trust_remote_code": True,
+            "offload_folder": "offload",
+            "low_cpu_mem_usage": True
+        },
+        "tokenizer_kwargs": {
+            "trust_remote_code": True
+        }
+    },
+    "deepseek-qwen-1.5b": {
+        "name": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+        "description": "DeepSeek's distilled Qwen 1.5B model, effective for efficient and high-quality responses",
+        "max_new_tokens": 512,
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 50,
+        "repetition_penalty": 1.1,
+        "model_kwargs": {
+            "trust_remote_code": True,
+            "offload_folder": "offload",
+            "low_cpu_mem_usage": True
+        },
+        "tokenizer_kwargs": {
+            "trust_remote_code": True
+        }
+    },
+    "qwen3-1.7b": {
+        "name": "Qwen/Qwen3-1.7B",
+        "description": "Qwen's 1.7B model known for balanced performance in multilingual settings",
+        "max_new_tokens": 512,
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 50,
+        "repetition_penalty": 1.1,
+        "model_kwargs": {
+            "trust_remote_code": True,
+            "offload_folder": "offload",
+            "low_cpu_mem_usage": True
+        },
+        "tokenizer_kwargs": {
+            "trust_remote_code": True
+        }
+    },
+    "gemma-3-1b-it": {
+        "name": "google/gemma-3-1b-it",
+        "description": "Google's Gemma 3 1B instruction-tuned model, good for efficient and accurate responses",
+        "max_new_tokens": 512,
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 50,
+        "repetition_penalty": 1.1,
+        "model_kwargs": {
+            "trust_remote_code": True,
+            "offload_folder": "offload",
+            "low_cpu_mem_usage": True
+        },
+        "tokenizer_kwargs": {
+            "trust_remote_code": True
+        }
+    },
+    "granite-3.3-2b": {
+        "name": "ibm-granite/granite-3.3-2b-base",
+        "description": "IBM's Granite 3.3 2B base model, optimized for strong reasoning and factual accuracy",
+        "max_new_tokens": 512,
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 50,
+        "repetition_penalty": 1.1,
+        "model_kwargs": {
+            "trust_remote_code": True,
+            "offload_folder": "offload",
+            "low_cpu_mem_usage": True
+        },
+        "tokenizer_kwargs": {
+            "trust_remote_code": True
+        }
+    },
     "gemma-2-2b": {
         "name": "google/gemma-2-2b",
         "description": "Google's Gemma 2 2B model, good for efficient inference",
@@ -149,6 +234,91 @@ ANSWER_MODEL_CONFIGS = {
     "llama-3-8b": {
         "name": "meta-llama/Meta-Llama-3-8B",
         "description": "Meta's Llama 3 8B model, good for detailed explanations",
+        "max_new_tokens": 1024,
+        "temperature": 0.3,
+        "top_p": 0.95,
+        "top_k": 40,
+        "repetition_penalty": 1.2,
+        "model_kwargs": {
+            "trust_remote_code": True,
+            "offload_folder": "offload",
+            "low_cpu_mem_usage": True
+        },
+        "tokenizer_kwargs": {
+            "trust_remote_code": True
+        }
+    },
+    "llama-3.2-1b": {
+        "name": "meta-llama/Llama-3.2-1B",
+        "description": "Meta's Llama 3.2 1B model, good for efficient processing with decent quality",
+        "max_new_tokens": 1024,
+        "temperature": 0.3,
+        "top_p": 0.95,
+        "top_k": 40,
+        "repetition_penalty": 1.2,
+        "model_kwargs": {
+            "trust_remote_code": True,
+            "offload_folder": "offload",
+            "low_cpu_mem_usage": True
+        },
+        "tokenizer_kwargs": {
+            "trust_remote_code": True
+        }
+    },
+    "deepseek-qwen-1.5b": {
+        "name": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+        "description": "DeepSeek's distilled Qwen 1.5B model, effective for efficient and high-quality responses",
+        "max_new_tokens": 1024,
+        "temperature": 0.3,
+        "top_p": 0.95,
+        "top_k": 40,
+        "repetition_penalty": 1.2,
+        "model_kwargs": {
+            "trust_remote_code": True,
+            "offload_folder": "offload",
+            "low_cpu_mem_usage": True
+        },
+        "tokenizer_kwargs": {
+            "trust_remote_code": True
+        }
+    },
+    "qwen3-1.7b": {
+        "name": "Qwen/Qwen3-1.7B",
+        "description": "Qwen's 1.7B model known for balanced performance in multilingual settings",
+        "max_new_tokens": 1024,
+        "temperature": 0.3,
+        "top_p": 0.95,
+        "top_k": 40,
+        "repetition_penalty": 1.2,
+        "model_kwargs": {
+            "trust_remote_code": True,
+            "offload_folder": "offload",
+            "low_cpu_mem_usage": True
+        },
+        "tokenizer_kwargs": {
+            "trust_remote_code": True
+        }
+    },
+    "gemma-3-1b-it": {
+        "name": "google/gemma-3-1b-it",
+        "description": "Google's Gemma 3 1B instruction-tuned model, good for efficient and accurate responses",
+        "max_new_tokens": 1024,
+        "temperature": 0.3,
+        "top_p": 0.95,
+        "top_k": 40,
+        "repetition_penalty": 1.2,
+        "model_kwargs": {
+            "trust_remote_code": True,
+            "offload_folder": "offload",
+            "low_cpu_mem_usage": True
+        },
+        "tokenizer_kwargs": {
+            "trust_remote_code": True
+        }
+    },
+    "granite-3.3-2b": {
+        "name": "ibm-granite/granite-3.3-2b-base",
+        "description": "IBM's Granite 3.3 2B base model, optimized for strong reasoning and factual accuracy",
         "max_new_tokens": 1024,
         "temperature": 0.3,
         "top_p": 0.95,
