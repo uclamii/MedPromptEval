@@ -15,6 +15,26 @@ Medical question answering requires both accuracy and appropriate explanation. T
 3. Analyze answer quality through comprehensive metrics
 4. Identify the most effective model and prompt combinations for medical QA
 
+## Real-World Applications
+
+This framework can be used for:
+
+1. **Medical LLM Research**:
+   - Benchmark different medical LLMs on standardized datasets
+   - Identify optimal prompting strategies for different medical domains
+
+2. **Medical Education**:
+   - Evaluate LLMs for patient education content generation
+   - Ensure medical explanations are accurate and at appropriate reading levels
+
+3. **Clinical Decision Support**:
+   - Test how well LLMs reason about medical cases
+   - Identify and reduce bias in medical recommendations
+
+4. **Healthcare Documentation**:
+   - Assess models for medical summarization tasks
+   - Evaluate factual consistency between source documents and model outputs
+
 ## Features
 
 - Supports multiple LLMs 
@@ -46,9 +66,7 @@ Medical question answering requires both accuracy and appropriate explanation. T
 - JSON output format for further processing
 - Evaluation pipeline for testing system prompts on real QA datasets
 - Multi-model evaluation capabilities for comprehensive performance comparisons
-- **Incremental CSV writing** to save results as they're generated
 - Memory-efficient evaluation with comprehensive NLP metrics
-- **Advanced metrics** including entailment checking
 
 ## Project Structure
 
@@ -535,26 +553,6 @@ Access your new metric in the evaluation results CSV or through the metrics dict
 - Adjust generation parameters in `config.py` to balance between quality and speed
 - When running multi-model evaluations, be aware that memory usage increases with each loaded model
 - Consider running extensive multi-model evaluations on high-memory machines or in batches
-
-## Real-World Applications
-
-This framework can be used for:
-
-1. **Medical LLM Research**:
-   - Benchmark different medical LLMs on standardized datasets
-   - Identify optimal prompting strategies for different medical domains
-
-2. **Medical Education**:
-   - Evaluate LLMs for patient education content generation
-   - Ensure medical explanations are accurate and at appropriate reading levels
-
-3. **Clinical Decision Support**:
-   - Test how well LLMs reason about medical cases
-   - Identify and reduce bias in medical recommendations
-
-4. **Healthcare Documentation**:
-   - Assess models for medical summarization tasks
-   - Evaluate factual consistency between source documents and model outputs
 
 ## Results Analysis
 
