@@ -383,16 +383,22 @@ class MedicalQAPipeline:
         # Convert single result to DataFrame
         result_df = pd.DataFrame([result])
         
-        # If this is the first write, initialize the CSV with headers
-        if not self.csv_initialized:
+        # Check if file exists and has content
+        file_exists = os.path.exists(self.output_path) and os.path.getsize(self.output_path) > 0
+        
+        # If file doesn't exist or is empty, initialize with headers
+        if not file_exists:
             result_df.to_csv(self.output_path, index=False, mode='w')
             self.csv_initialized = True
             self.results_df = result_df
         else:
-            # Append to the CSV without writing headers
+            # Always append to existing file
             result_df.to_csv(self.output_path, index=False, mode='a', header=False)
             # Update in-memory DataFrame for the summary
-            self.results_df = pd.concat([self.results_df, result_df])
+            if self.results_df is None:
+                self.results_df = pd.read_csv(self.output_path)
+            else:
+                self.results_df = pd.concat([self.results_df, result_df])
     
     def _print_config(self, dataset_path: str, output_path: str, num_samples: Optional[int]) -> None:
         """Print the pipeline configuration."""
