@@ -193,11 +193,6 @@ class MetricsEvaluator:
         """
         metrics = {}
         
-        # Truncate long texts to prevent recursion errors
-        MAX_TEXT_LENGTH = 1000  # characters
-        model_answer = model_answer[:MAX_TEXT_LENGTH]
-        correct_answer = correct_answer[:MAX_TEXT_LENGTH]
-        
         try:
             # Calculate semantic similarity
             question_embedding = self.embedding_model.encode([question], convert_to_tensor=True)
@@ -205,7 +200,6 @@ class MetricsEvaluator:
             correct_answer_embedding = self.embedding_model.encode([correct_answer], convert_to_tensor=True)
             
             metrics['semantic_similarity'] = float(cosine_similarity(question_embedding, model_answer_embedding)[0][0])
-            
             metrics['answer_similarity'] = float(cosine_similarity(model_answer_embedding, correct_answer_embedding)[0][0])
             
             # Calculate ROUGE scores with error handling
@@ -282,8 +276,8 @@ class MetricsEvaluator:
         except Exception as e:
             print(f"Error in NLP metrics calculation: {str(e)}")
             # Set default values for all metrics
-            for metric in self.METRIC_CATEGORIES.values():
-                for m in metric:
+            for category in METRIC_CATEGORIES.values():
+                for m in category:
                     metrics[m] = 0.0
         
         return metrics
@@ -567,42 +561,26 @@ class MetricsEvaluator:
             {"name": "entailment_label", "description": "Natural Language Inference label: entailment, neutral, or contradiction"}
         ]
         
-        # Reference Metrics
-        metrics_docs["Reference Metrics"] = [
-            {"name": "correct_semantic_similarity", "description": "Semantic similarity between question and correct answer"},
-            {"name": "correct_answer_length", "description": "Word count of the correct answer"},
-            {"name": "correct_flesch_reading_ease", "description": "Readability score of the correct answer"},
-            {"name": "correct_flesch_kincaid_grade", "description": "Reading grade level of the correct answer"},
-            {"name": "correct_sentiment_polarity", "description": "Sentiment score of the correct answer"},
-            {"name": "correct_sentiment_subjectivity", "description": "Subjectivity score of the correct answer"}
-        ]
-        
         # Comparative Metrics
         metrics_docs["Comparative Metrics"] = [
             {"name": "comparison_answer_length_delta", "description": "Absolute difference in word count between model and correct answers"},
             {"name": "comparison_answer_length_pct_change", "description": "Percentage difference in word count relative to correct answer"},
-            {"name": "comparison_answer_length_analysis", "description": "Human-readable analysis of length difference"},
-            
+            {"name": "comparison_answer_length_analysis", "description": "Analysis of answer length comparison"},
             {"name": "comparison_flesch_reading_ease_delta", "description": "Difference in readability score between model and correct answers"},
             {"name": "comparison_flesch_reading_ease_pct_change", "description": "Percentage difference in readability relative to correct answer"},
-            {"name": "comparison_flesch_reading_ease_analysis", "description": "Human-readable analysis of readability difference"},
-            
+            {"name": "comparison_flesch_reading_ease_analysis", "description": "Analysis of readability comparison"},
             {"name": "comparison_flesch_kincaid_grade_delta", "description": "Difference in grade level between model and correct answers"},
             {"name": "comparison_flesch_kincaid_grade_pct_change", "description": "Percentage difference in grade level relative to correct answer"},
-            {"name": "comparison_flesch_kincaid_grade_analysis", "description": "Human-readable analysis of grade level difference"},
-            
+            {"name": "comparison_flesch_kincaid_grade_analysis", "description": "Analysis of grade level comparison"},
             {"name": "comparison_sentiment_polarity_delta", "description": "Difference in sentiment polarity between model and correct answers"},
             {"name": "comparison_sentiment_polarity_pct_change", "description": "Percentage difference in sentiment polarity relative to correct answer"},
-            {"name": "comparison_sentiment_polarity_analysis", "description": "Human-readable analysis of sentiment polarity difference"},
-            
+            {"name": "comparison_sentiment_polarity_analysis", "description": "Analysis of sentiment polarity comparison"},
             {"name": "comparison_sentiment_subjectivity_delta", "description": "Difference in subjectivity between model and correct answers"},
             {"name": "comparison_sentiment_subjectivity_pct_change", "description": "Percentage difference in subjectivity relative to correct answer"},
-            {"name": "comparison_sentiment_subjectivity_analysis", "description": "Human-readable analysis of subjectivity difference"},
-            
+            {"name": "comparison_sentiment_subjectivity_analysis", "description": "Analysis of subjectivity comparison"},
             {"name": "comparison_relevance_delta", "description": "Difference in question relevance between model and correct answers"},
-            {"name": "comparison_relevance_analysis", "description": "Human-readable analysis of relevance difference"},
-            
-            {"name": "comparison_summary", "description": "Concise summary of key differences between model and correct answers"}
+            {"name": "comparison_relevance_analysis", "description": "Analysis of relevance comparison"},
+            {"name": "comparison_summary", "description": "Summary of comparison analysis"}
         ]
         
         return metrics_docs
