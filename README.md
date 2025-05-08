@@ -1,10 +1,10 @@
-# Medical LLM Question and Answer Evaluation Framework
+# MedPromptEval - A Medical LLM Question and Answer Evaluation Framework
 
-A comprehensive framework for evaluating and improving large language models for medical question answering through systematic prompt engineering, multi-model evaluation, and detailed metrics analysis.
+MedPromptEval is a comprehensive framework for evaluating and improving large language models for medical question answering through systematic prompt engineering, multi-model evaluation, and detailed metrics analysis.
 
 ## Overview
 
-This project provides a complete framework for generating high-quality system prompts that guide language models in answering medical questions, evaluating their performance, and analyzing the results. It's designed to help researchers and practitioners understand which combinations of models and prompting strategies yield the most accurate, relevant, and unbiased medical answers.
+MedPromptEval provides a complete framework for generating high-quality system prompts that guide language models in answering medical questions, evaluating their performance, and analyzing the results. It's designed to help researchers and practitioners understand which combinations of models and prompting strategies yield the most accurate, relevant, and unbiased medical answers.
 
 ### What Problem Does It Solve?
 
@@ -17,7 +17,7 @@ Medical question answering requires both accuracy and appropriate explanation. T
 
 ## Real-World Applications
 
-This framework can be used for:
+MedPromptEval can be used for:
 
 1. **Medical LLM Research**:
    - Benchmark different medical LLMs on standardized datasets
