@@ -171,7 +171,7 @@ class MedicalQAPipeline:
         print(f"Loaded {len(df)} question-answer pairs from {dataset_path}")
         return df
     
-    def run(self, dataset_path: str, output_path: str, num_samples: Optional[int] = None) -> pd.DataFrame:
+    def run(self, dataset_path: str, output_path: str, num_samples: Optional[int] = None, resume_from: Optional[int] = None) -> pd.DataFrame:
         """
         Execute the full pipeline.
         
@@ -179,6 +179,7 @@ class MedicalQAPipeline:
             dataset_path: Path to the CSV dataset
             output_path: Path for the output CSV file
             num_samples: Number of samples to process (None for all)
+            resume_from: Question index to resume from (1-based)
             
         Returns:
             DataFrame with evaluation results
@@ -201,19 +202,20 @@ class MedicalQAPipeline:
         self.long_text_fields = ['relevancy_reason', 'prompt_alignment_reason']
         
         # Process data and generate results (this now writes to CSV directly)
-        results = self._process_data(df)
+        results = self._process_data(df, resume_from)
         
         # Print summary 
         self._print_summary(df, self.results_df, output_path)
         
         return self.results_df
     
-    def _process_data(self, df: pd.DataFrame) -> List[Dict]:
+    def _process_data(self, df: pd.DataFrame, resume_from: Optional[int] = None) -> List[Dict]:
         """
         Process each question-answer pair in the dataset.
         
         Args:
             df: DataFrame containing question-answer pairs
+            resume_from: Question index to resume from (1-based)
             
         Returns:
             List of dictionaries with results (for backward compatibility)
@@ -227,8 +229,30 @@ class MedicalQAPipeline:
         # Counter for prompt numbering across all questions/models
         prompt_num = 0
         
+        # If resuming, load existing results to get the last prompt number
+        if resume_from is not None:
+            try:
+                existing_df = pd.read_csv(self.output_path)
+                if len(existing_df) > 0:
+                    prompt_num = existing_df['prompt_num'].max()
+                    print(f"Resuming from prompt number {prompt_num}")
+                    
+                    # Calculate how many questions have been fully processed
+                    questions_processed = len(existing_df) // (len(self.prompt_types) * self.prompts_per_type * len(self.prompt_models) * len(self.answer_models))
+                    print(f"Questions fully processed: {questions_processed}")
+                    
+                    if questions_processed >= len(df):
+                        print("All questions have been fully processed. No new processing needed.")
+                        return results
+            except Exception as e:
+                print(f"Warning: Could not load existing results: {str(e)}")
+        
         # Process each question-answer pair
         for idx, row in enumerate(df.itertuples(), 1):
+            # Skip questions before resume point
+            if resume_from is not None and idx < resume_from:
+                continue
+            
             question = row.question
             correct_answer = row.answer
             question_id = str(getattr(row, 'id', idx))  # Use ID if available, otherwise use index
@@ -406,7 +430,7 @@ class MedicalQAPipeline:
         print(f"Expected total results: {total_results}")
         print(f"{'='*100}\n")
     
-    def _print_summary(self, df: pd.DataFrame, results_df: pd.DataFrame, output_path: str) -> None:
+    def _print_summary(self, df: pd.DataFrame, results_df: Optional[pd.DataFrame], output_path: str) -> None:
         """Print a summary of the pipeline results."""
         prompt_model_count = len(self.prompt_models)
         answer_model_count = len(self.answer_models)
@@ -421,36 +445,42 @@ class MedicalQAPipeline:
         print(f"Used {prompt_model_count} prompt models ({', '.join(self.prompt_models)})")
         print(f"Used {answer_model_count} answer models ({', '.join(self.answer_models)})")
         print(f"Used {prompt_type_count} prompt types ({', '.join(self.prompt_types)})")
-        print(f"Generated {len(results_df)} result rows (expected: {expected_rows})")
         
-        # Print a breakdown of results by model combination
-        print(f"\nResults breakdown by model combination:")
-        for prompt_model in self.prompt_models:
-            for answer_model in self.answer_models:
-                combo_df = results_df[
-                    (results_df['prompt_model_key'] == prompt_model) & 
-                    (results_df['answer_model_key'] == answer_model)
-                ]
-                print(f"  - {prompt_model} (prompt) + {answer_model} (answer): {len(combo_df)} results")
-        
-        # Print metrics summary if available
-        if self.enable_metrics:
-            print(f"\nMetrics summary:")
+        # Load the complete results from the CSV file
+        try:
+            complete_results = pd.read_csv(output_path)
+            print(f"Total result rows in file: {len(complete_results)} (expected: {expected_rows})")
             
-            # Count the number of metrics collected by category
-            if len(results_df) > 0:
-                for category, category_metrics in METRIC_CATEGORIES.items():
-                    existing_metrics = [m for m in category_metrics if m in results_df.columns]
-                    if existing_metrics:
-                        print(f"\n  {category} ({len(existing_metrics)}/{len(category_metrics)} metrics):")
-                        
-                        # Report average values for numeric metrics
-                        for metric in existing_metrics:
-                            if metric in results_df.columns and pd.api.types.is_numeric_dtype(results_df[metric]):
-                                avg_value = results_df[metric].mean()
-                                print(f"    - Average {metric}: {avg_value:.4f}")
-            else:
-                print("  No metrics data available in results.")
+            # Print a breakdown of results by model combination
+            print(f"\nResults breakdown by model combination:")
+            for prompt_model in self.prompt_models:
+                for answer_model in self.answer_models:
+                    combo_df = complete_results[
+                        (complete_results['prompt_model_key'] == prompt_model) & 
+                        (complete_results['answer_model_key'] == answer_model)
+                    ]
+                    print(f"  - {prompt_model} (prompt) + {answer_model} (answer): {len(combo_df)} results")
+            
+            # Print metrics summary if available
+            if self.enable_metrics:
+                print(f"\nMetrics summary:")
+                
+                # Count the number of metrics collected by category
+                if len(complete_results) > 0:
+                    for category, category_metrics in METRIC_CATEGORIES.items():
+                        existing_metrics = [m for m in category_metrics if m in complete_results.columns]
+                        if existing_metrics:
+                            print(f"\n  {category} ({len(existing_metrics)}/{len(category_metrics)} metrics):")
+                            
+                            # Report average values for numeric metrics
+                            for metric in existing_metrics:
+                                if metric in complete_results.columns and pd.api.types.is_numeric_dtype(complete_results[metric]):
+                                    avg_value = complete_results[metric].mean()
+                                    print(f"    - Average {metric}: {avg_value:.4f}")
+                else:
+                    print("  No metrics data available in results.")
+        except Exception as e:
+            print(f"Warning: Could not load complete results for summary: {str(e)}")
         
         print(f"{'#'*100}")
 
@@ -488,6 +518,8 @@ def main():
                         help='List all available metrics with descriptions and exit')
     parser.add_argument('--no-verbose', action='store_true',
                         help='Disable colorized metrics display in the terminal')
+    parser.add_argument('--resume-from', type=int, default=None,
+                        help='Question index to resume from (1-based)')
     
     args = parser.parse_args()
     
@@ -518,11 +550,12 @@ def main():
         verbose=not args.no_verbose
     )
     
-    # Execute the pipeline
+    # Execute the pipeline with resume option
     pipeline.run(
         dataset_path=args.dataset,
         output_path=args.output,
-        num_samples=args.num_questions
+        num_samples=args.num_questions,
+        resume_from=args.resume_from
     )
 
 if __name__ == "__main__":

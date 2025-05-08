@@ -6,9 +6,8 @@ python pipeline.py \
   --prompt-models llama-3.2-1b \
   --answer-models llama-3.2-1b \
   --prompt-types "chain of thought" "trigger chain of thought" "self consistency" "prompt chaining" "react" "tree of thoughts" "role based" "metacognitive prompting" "uncertainty based prompting" "guided prompting" \
-  --prompts-per-type 10 \
-  --num-questions 100 
-
+  --prompts-per-type 5 \
+  --num-questions 20 
 
 #Evaluate different models across same prompt types 
 python pipeline.py \
@@ -17,8 +16,8 @@ python pipeline.py \
   --prompt-models llama-3.2-1b deepseek-qwen-1.5b qwen3-1.7b gemma-3-1b-it granite-3.3-2b \
   --answer-models llama-3.2-1b deepseek-qwen-1.5b qwen3-1.7b gemma-3-1b-it granite-3.3-2b \
   --prompt-types "self consistency" \
-  --prompts-per-type 10 \
-  --num-questions 100 
+  --prompts-per-type 5 \
+  --num-questions 20 
 
 #Comprehensive evaluation of prompt types and models 
 python pipeline.py \
@@ -27,5 +26,5 @@ python pipeline.py \
   --prompt-models llama-3.2-1b deepseek-qwen-1.5b qwen3-1.7b gemma-3-1b-it granite-3.3-2b \
   --answer-models llama-3.2-1b deepseek-qwen-1.5b qwen3-1.7b gemma-3-1b-it granite-3.3-2b \
   --prompt-types "chain of thought" "react" "tree of thoughts" "role based" "metacognitive prompting" \
-  --prompts-per-type 10 \
-  --num-questions 100 
+  --prompts-per-type 5 \
+  --num-questions 20 

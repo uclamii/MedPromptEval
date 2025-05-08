@@ -26,7 +26,7 @@ PROMPT_MODEL_CONFIGS = {
     "phi-2": {
         "name": "microsoft/phi-2",
         "description": "Microsoft's Phi-2 model, good for concise answers",
-        "max_new_tokens": 512,
+        "max_new_tokens": 256,
         "temperature": 0.7,
         "top_p": 0.9,
         "top_k": 50,
@@ -38,12 +38,13 @@ PROMPT_MODEL_CONFIGS = {
         },
         "tokenizer_kwargs": {
             "trust_remote_code": True
-        }
+        },
+        "max_length": 1024
     },
     "mistral-7b": {
         "name": "mistralai/Mistral-7B-v0.1",
         "description": "Mistral 7B base model, good for general instruction following",
-        "max_new_tokens": 512,
+        "max_new_tokens": 256,
         "temperature": 0.7,
         "top_p": 0.9,
         "top_k": 50,
@@ -55,7 +56,8 @@ PROMPT_MODEL_CONFIGS = {
         },
         "tokenizer_kwargs": {
             "trust_remote_code": True
-        }
+        },
+        "max_length": 1024
     },
     "llama-3-8b": {
         "name": "meta-llama/Meta-Llama-3-8B",
@@ -200,7 +202,7 @@ ANSWER_MODEL_CONFIGS = {
     "phi-2": {
         "name": "microsoft/phi-2",
         "description": "Microsoft's Phi-2 model, good for concise answers",
-        "max_new_tokens": 1024,
+        "max_new_tokens": 512,
         "temperature": 0.3,  # Lower temperature for more factual answers
         "top_p": 0.95,
         "top_k": 40,
@@ -212,12 +214,13 @@ ANSWER_MODEL_CONFIGS = {
         },
         "tokenizer_kwargs": {
             "trust_remote_code": True
-        }
+        },
+        "max_length": 2048
     },
     "mistral-7b": {
         "name": "mistralai/Mistral-7B-v0.1",
         "description": "Mistral 7B base model, good for general instruction following",
-        "max_new_tokens": 1024,
+        "max_new_tokens": 512,
         "temperature": 0.3,
         "top_p": 0.95,
         "top_k": 40,
@@ -229,7 +232,8 @@ ANSWER_MODEL_CONFIGS = {
         },
         "tokenizer_kwargs": {
             "trust_remote_code": True
-        }
+        },
+        "max_length": 2048
     },
     "llama-3-8b": {
         "name": "meta-llama/Meta-Llama-3-8B",

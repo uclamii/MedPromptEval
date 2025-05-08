@@ -193,57 +193,98 @@ class MetricsEvaluator:
         """
         metrics = {}
         
-        # Compute embeddings
-        question_embedding = self.embedding_model.encode([question], convert_to_tensor=True)
-        answer_embedding = self.embedding_model.encode([model_answer], convert_to_tensor=True)
-        correct_embedding = self.embedding_model.encode([correct_answer], convert_to_tensor=True)
+        # Truncate long texts to prevent recursion errors
+        MAX_TEXT_LENGTH = 1000  # characters
+        model_answer = model_answer[:MAX_TEXT_LENGTH]
+        correct_answer = correct_answer[:MAX_TEXT_LENGTH]
         
-        # Convert to numpy for similarity calculations
-        question_embedding_np = question_embedding.cpu().numpy()
-        answer_embedding_np = answer_embedding.cpu().numpy()
-        correct_embedding_np = correct_embedding.cpu().numpy()
+        try:
+            # Calculate semantic similarity
+            question_embedding = self.embedding_model.encode([question], convert_to_tensor=True)
+            model_answer_embedding = self.embedding_model.encode([model_answer], convert_to_tensor=True)
+            correct_answer_embedding = self.embedding_model.encode([correct_answer], convert_to_tensor=True)
+            
+            metrics['semantic_similarity'] = float(cosine_similarity(question_embedding, model_answer_embedding)[0][0])
+            
+            metrics['answer_similarity'] = float(cosine_similarity(model_answer_embedding, correct_answer_embedding)[0][0])
+            
+            # Calculate ROUGE scores with error handling
+            try:
+                rouge_scores = self.rouge.get_scores(model_answer, correct_answer)[0]
+                metrics['rouge1_f'] = rouge_scores['rouge-1']['f']
+                metrics['rouge2_f'] = rouge_scores['rouge-2']['f']
+                metrics['rougeL_f'] = rouge_scores['rouge-l']['f']
+            except RecursionError:
+                print(f"Warning: ROUGE calculation failed due to text length. Skipping ROUGE metrics.")
+                metrics['rouge1_f'] = 0.0
+                metrics['rouge2_f'] = 0.0
+                metrics['rougeL_f'] = 0.0
+            except Exception as e:
+                print(f"Warning: Error calculating ROUGE scores: {str(e)}")
+                metrics['rouge1_f'] = 0.0
+                metrics['rouge2_f'] = 0.0
+                metrics['rougeL_f'] = 0.0
+            
+            # Calculate BLEU score
+            try:
+                reference = [correct_answer.split()]
+                hypothesis = model_answer.split()
+                
+                # Use smoothing function to avoid score of 0 for short sentences
+                smoothie = SmoothingFunction().method1
+                metrics['bleu_score'] = sentence_bleu(reference, hypothesis, smoothing_function=smoothie)
+            except Exception as e:
+                print(f"Warning: Error calculating BLEU score: {str(e)}")
+                metrics['bleu_score'] = 0.0
+            
+            # Calculate BERTScore
+            try:
+                precision, recall, f1 = self.bert_scorer.score([model_answer], [correct_answer])
+                metrics['bertscore_precision'] = float(precision[0])
+                metrics['bertscore_recall'] = float(recall[0])
+                metrics['bertscore_f1'] = float(f1[0])
+            except Exception as e:
+                print(f"Warning: Error calculating BERTScore: {str(e)}")
+                metrics['bertscore_precision'] = 0.0
+                metrics['bertscore_recall'] = 0.0
+                metrics['bertscore_f1'] = 0.0
+            
+            # Calculate readability metrics
+            try:
+                metrics['answer_length'] = len(model_answer.split())
+                metrics['flesch_reading_ease'] = textstat.flesch_reading_ease(model_answer)
+                metrics['flesch_kincaid_grade'] = textstat.flesch_kincaid_grade(model_answer)
+            except Exception as e:
+                print(f"Warning: Error calculating readability metrics: {str(e)}")
+                metrics['answer_length'] = 0
+                metrics['flesch_reading_ease'] = 0.0
+                metrics['flesch_kincaid_grade'] = 0.0
+            
+            # Calculate sentiment
+            try:
+                sentiment = TextBlob(model_answer).sentiment
+                metrics['sentiment_polarity'] = sentiment.polarity
+                metrics['sentiment_subjectivity'] = sentiment.subjectivity
+            except Exception as e:
+                print(f"Warning: Error calculating sentiment: {str(e)}")
+                metrics['sentiment_polarity'] = 0.0
+                metrics['sentiment_subjectivity'] = 0.0
+            
+            # Calculate entailment
+            try:
+                entailment_results = self.check_entailment(model_answer, correct_answer)
+                metrics.update(entailment_results)
+            except Exception as e:
+                print(f"Warning: Error calculating entailment: {str(e)}")
+                metrics['entailment_score'] = 0.0
+                metrics['entailment_label'] = 'neutral'
         
-        # Question-answer semantic similarity (relevance)
-        metrics['semantic_similarity'] = float(cosine_similarity(question_embedding_np, answer_embedding_np)[0][0])
-        
-        # Semantic similarity between model answer and correct answer
-        metrics['answer_similarity'] = float(cosine_similarity(answer_embedding_np, correct_embedding_np)[0][0])
-        
-        # Basic statistics
-        metrics['answer_length'] = len(model_answer.split())
-        
-        # Readability metrics
-        metrics['flesch_reading_ease'] = textstat.flesch_reading_ease(model_answer)
-        metrics['flesch_kincaid_grade'] = textstat.flesch_kincaid_grade(model_answer)
-        
-        # Sentiment analysis
-        sentiment = TextBlob(model_answer).sentiment
-        metrics['sentiment_polarity'] = sentiment.polarity
-        metrics['sentiment_subjectivity'] = sentiment.subjectivity
-        
-        # ROUGE metrics
-        rouge_scores = self.rouge.get_scores(model_answer, correct_answer)[0]
-        metrics['rouge1_f'] = rouge_scores['rouge-1']['f']
-        metrics['rouge2_f'] = rouge_scores['rouge-2']['f']
-        metrics['rougeL_f'] = rouge_scores['rouge-l']['f']
-        
-        # BLEU score
-        reference = [correct_answer.split()]
-        hypothesis = model_answer.split()
-        
-        # Use smoothing function to avoid score of 0 for short sentences
-        smoothie = SmoothingFunction().method1
-        metrics['bleu_score'] = sentence_bleu(reference, hypothesis, smoothing_function=smoothie)
-        
-        # BERTScore
-        precision, recall, f1 = self.bert_scorer.score([model_answer], [correct_answer])
-        metrics['bertscore_precision'] = float(precision[0])
-        metrics['bertscore_recall'] = float(recall[0])
-        metrics['bertscore_f1'] = float(f1[0])
-        
-        # Check entailment between model answer and correct answer
-        entailment_results = self.check_entailment(model_answer, correct_answer)
-        metrics.update(entailment_results)
+        except Exception as e:
+            print(f"Error in NLP metrics calculation: {str(e)}")
+            # Set default values for all metrics
+            for metric in self.METRIC_CATEGORIES.values():
+                for m in metric:
+                    metrics[m] = 0.0
         
         return metrics
     
