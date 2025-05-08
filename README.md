@@ -556,10 +556,6 @@ This framework can be used for:
    - Assess models for medical summarization tasks
    - Evaluate factual consistency between source documents and model outputs
 
-## License
-
-[MIT License](LICENSE)
-
 ## Results Analysis
 
 After the pipeline completes, it automatically analyzes the results to find the best combinations of models and prompt types. The analysis:
@@ -669,3 +665,46 @@ This analysis helps you:
 2. Understand which prompt types work best
 3. See detailed metrics for each combination
 4. Get explanations for why certain combinations performed well 
+
+## Pipeline Features
+
+### Incremental Processing and Resume Capability
+The pipeline supports incremental processing and can resume from interruptions:
+
+- **Incremental CSV Writing**: Results are written to CSV immediately after each evaluation, providing:
+  - Crash resistance - no data loss if the process is interrupted
+  - Progress visibility - results can be monitored in real-time
+  - Memory efficiency - results don't need to be held in memory
+
+- **Resume Functionality**: Use the `--resume-from` argument to continue from a specific question:
+  ```bash
+  python pipeline.py \
+    --dataset datasets/cleaned/your_dataset.csv \
+    --output results/your_results.csv \
+    --prompt-models llama-3.2-1b \
+    --answer-models llama-3.2-1b \
+    --prompt-types "chain of thought" "guided prompting" \
+    --prompts-per-type 5 \
+    --num-questions 20 \
+    --resume-from 19  # Resume from question #19
+  ```
+
+- **Progress Tracking**:
+  - Shows overall progress with a progress bar
+  - Displays current question being processed
+  - Indicates which model combinations are being evaluated
+  - Confirms each result being saved to CSV
+
+### CSV Output Handling
+The pipeline manages CSV output with the following features:
+
+- **Automatic Directory Creation**: Creates output directories if they don't exist
+- **Safe Append Mode**: Never overwrites existing results, always appends new data
+- **Header Management**: Properly handles CSV headers for both new and existing files
+- **Long Text Handling**: Option to exclude long text fields with `--exclude-long-text`
+
+This ensures that results are saved reliably and efficiently, even when the pipeline is interrupted or when processing large datasets. 
+
+## License
+
+[MIT License](LICENSE)
