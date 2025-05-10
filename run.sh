@@ -13,11 +13,11 @@ python pipeline.py \
 python pipeline.py \
   --dataset datasets/cleaned/medquad_cleaned.csv \
   --output results/medquad_self_consistency_5_models.csv \
-  --prompt-models llama-3.2-1b deepseek-qwen-1.5b qwen3-1.7b gemma-3-1b-it granite-3.3-2b \
-  --answer-models llama-3.2-1b deepseek-qwen-1.5b qwen3-1.7b gemma-3-1b-it granite-3.3-2b \
+  --prompt-models deepseek-qwen-1.5b gemma-3-1b-it granite-3.3-2b \
+  --answer-models deepseek-qwen-1.5b gemma-3-1b-it granite-3.3-2b \
   --prompt-types "self consistency" \
-  --prompts-per-type 5 \
-  --num-questions 20 
+  --prompts-per-type 3 \
+  --num-questions 10 
 
 #Comprehensive evaluation of prompt types and models 
 python pipeline.py \
@@ -27,4 +27,5 @@ python pipeline.py \
   --answer-models llama-3.2-1b deepseek-qwen-1.5b qwen3-1.7b gemma-3-1b-it granite-3.3-2b \
   --prompt-types "chain of thought" "react" "tree of thoughts" "role based" "metacognitive prompting" \
   --prompts-per-type 5 \
-  --num-questions 20 
+  --num-questions 10 
+

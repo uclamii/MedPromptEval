@@ -198,9 +198,13 @@ class MetricsEvaluator:
             question_embedding = self.embedding_model.encode([question], convert_to_tensor=True)
             model_answer_embedding = self.embedding_model.encode([model_answer], convert_to_tensor=True)
             correct_answer_embedding = self.embedding_model.encode([correct_answer], convert_to_tensor=True)
-            
-            metrics['semantic_similarity'] = float(cosine_similarity(question_embedding, model_answer_embedding)[0][0])
-            metrics['answer_similarity'] = float(cosine_similarity(model_answer_embedding, correct_answer_embedding)[0][0])
+
+            question_embedding_np = question_embedding.cpu().numpy()
+            model_answer_embedding_np = model_answer_embedding.cpu().numpy()
+            correct_answer_embedding_np = correct_answer_embedding.cpu().numpy()
+
+            metrics['semantic_similarity'] = float(cosine_similarity(question_embedding_np, model_answer_embedding_np)[0][0])
+            metrics['answer_similarity'] = float(cosine_similarity(model_answer_embedding_np, correct_answer_embedding_np)[0][0])
             
             # Calculate ROUGE scores with error handling
             try:

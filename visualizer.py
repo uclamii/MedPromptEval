@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Dict, List, Optional, Union, Tuple, Any
 from pathlib import Path
+from sklearn.preprocessing import MinMaxScaler
 
 
 class ResultsVisualizer:
@@ -42,6 +43,7 @@ class ResultsVisualizer:
         self.subfolder = subfolder
         self.palette = palette
         self.df = None
+        self.normalized_df = None  # Store normalized dataframe
         
         # Set up the full output directory path
         if subfolder:
@@ -533,12 +535,222 @@ class ResultsVisualizer:
         self._save_figure(f"{model_type.split('_')[0]}_model_report_{model}", tight_layout=False)
         plt.close()
     
+    def plot_best_prompts(
+        self,
+        top_n: int = 10,
+        metrics: List[str] = None,
+        figsize: Tuple[int, int] = (16, 12)
+    ) -> None:
+        """
+        Create a visualization showing the best prompts with their metrics and actual prompt text.
+        
+        Args:
+            top_n: Number of top prompts to show
+            metrics: List of metrics to include (defaults to key metrics if None)
+            figsize: Figure size as (width, height)
+        """
+        # Default metrics if none provided
+        if metrics is None:
+            metrics = [
+                "answer_similarity", "semantic_similarity", 
+                "entailment_score", "bertscore_f1"
+            ]
+        
+        # Calculate average scores for each prompt
+        prompt_scores = self.df.groupby(['prompt_type', 'prompt_variation', 'system_prompt'])[metrics].mean()
+        
+        # Calculate overall score as mean of all metrics
+        prompt_scores['overall_score'] = prompt_scores[metrics].mean(axis=1)
+        
+        # Get top N prompts
+        top_prompts = prompt_scores.sort_values('overall_score', ascending=False).head(top_n)
+        
+        # Create figure
+        plt.figure(figsize=figsize)
+        
+        # Create subplots
+        gs = plt.GridSpec(top_n, 2, width_ratios=[1, 2])
+        
+        # Plot metrics for each prompt
+        for i, (idx, row) in enumerate(top_prompts.iterrows()):
+            # Plot metrics
+            ax1 = plt.subplot(gs[i, 0])
+            metrics_data = pd.Series(row[metrics])
+            metrics_data.plot(kind='bar', ax=ax1)
+            ax1.set_title(f"Prompt #{i+1}: {idx[0]}")
+            ax1.set_xticklabels(ax1.get_xticklabels(), rotation=45, ha='right')
+            ax1.set_ylim(0, 1)
+            
+            # Add prompt text
+            ax2 = plt.subplot(gs[i, 1])
+            ax2.axis('off')
+            prompt_text = idx[2]  # system_prompt
+            # Truncate long prompts
+            if len(prompt_text) > 500:
+                prompt_text = prompt_text[:497] + "..."
+            ax2.text(0, 0.5, prompt_text, wrap=True, va='center')
+        
+        plt.tight_layout()
+        self._save_figure("best_prompts_analysis")
+        plt.close()
+        
+        # Also save a text file with the full prompts
+        text_output_path = os.path.join(self.output_dir, "best_prompts.txt")
+        with open(text_output_path, 'w') as f:
+            f.write("Top Prompts Analysis\n")
+            f.write("=" * 80 + "\n\n")
+            
+            for i, (idx, row) in enumerate(top_prompts.iterrows()):
+                f.write(f"Prompt #{i+1}: {idx[0]} (Variation {idx[1]})\n")
+                f.write("-" * 80 + "\n")
+                f.write("Metrics:\n")
+                for metric in metrics:
+                    f.write(f"  - {metric}: {row[metric]:.4f}\n")
+                f.write(f"  - Overall Score: {row['overall_score']:.4f}\n")
+                f.write("\nPrompt Text:\n")
+                f.write(idx[2] + "\n\n")
+                f.write("=" * 80 + "\n\n")
+        
+        print(f"Best prompts analysis saved to {text_output_path}")
+
+    def _normalize_metrics(self) -> None:
+        """
+        Normalize all metric columns to 0-1 range using sklearn's MinMaxScaler.
+        This ensures fair comparison between different metrics.
+        """
+        if self.df is None:
+            return
+
+        # Create a copy of the dataframe for normalization
+        self.normalized_df = self.df.copy()
+        
+        # Get all metric columns (numeric columns that aren't prompt_num or prompt_variation)
+        metric_cols = [col for col in self.df.select_dtypes(include=['float64', 'int64']).columns 
+                      if not col.startswith('prompt_') and col not in ['prompt_num', 'prompt_variation']]
+        
+        # Initialize MinMaxScaler
+        scaler = MinMaxScaler()
+        
+        # Normalize all metric columns at once
+        normalized_metrics = scaler.fit_transform(self.df[metric_cols])
+        
+        # Update the normalized dataframe with the scaled values
+        self.normalized_df[metric_cols] = normalized_metrics
+        
+        print("Metrics normalized to 0-1 range using MinMaxScaler")
+        
+        # Save normalized data for reference
+        normalized_output_path = os.path.join(self.output_dir, "normalized_metrics.csv")
+        self.normalized_df.to_csv(normalized_output_path, index=False)
+        print(f"Normalized metrics saved to {normalized_output_path}")
+
+    def analyze_best_configurations(
+        self,
+        top_n: int = 10,
+        metrics: List[str] = None,
+        weights: Dict[str, float] = None
+    ) -> None:
+        """
+        Analyze and save the best overall configurations based on all metrics.
+        
+        Args:
+            top_n: Number of top configurations to show
+            metrics: List of metrics to include (defaults to key metrics if None)
+            weights: Dictionary of metric weights (defaults to equal weights if None)
+        """
+        # Ensure metrics are normalized
+        if self.normalized_df is None:
+            self._normalize_metrics()
+        
+        # Use normalized dataframe for analysis
+        df_to_use = self.normalized_df if self.normalized_df is not None else self.df
+        
+        # Default metrics if none provided
+        if metrics is None:
+            metrics = [
+                "answer_similarity", "semantic_similarity", 
+                "entailment_score", "bertscore_f1", "rouge1_f",
+                "rouge2_f", "rougeL_f", "bleu_score"
+            ]
+        
+        # Default weights if none provided
+        if weights is None:
+            weights = {
+                "answer_similarity": 0.25,
+                "semantic_similarity": 0.25,
+                "entailment_score": 0.2,
+                "bertscore_f1": 0.15,
+                "rouge1_f": 0.05,
+                "rouge2_f": 0.05,
+                "rougeL_f": 0.03,
+                "bleu_score": 0.02
+            }
+        
+        # Calculate weighted scores for each configuration
+        config_scores = df_to_use.groupby(
+            ['prompt_model', 'answer_model', 'prompt_type', 'prompt_variation', 'system_prompt']
+        )[metrics].mean()
+        
+        # Calculate weighted average
+        weighted_scores = pd.Series(0.0, index=config_scores.index)
+        for metric, weight in weights.items():
+            if metric in config_scores.columns:
+                weighted_scores += config_scores[metric] * weight
+        
+        config_scores['weighted_score'] = weighted_scores
+        
+        # Get top N configurations
+        top_configs = config_scores.sort_values('weighted_score', ascending=False).head(top_n)
+        
+        # Save detailed analysis to text file
+        text_output_path = os.path.join(self.output_dir, "best_configurations.txt")
+        with open(text_output_path, 'w') as f:
+            f.write("Best Overall Configurations Analysis (Using Normalized Metrics)\n")
+            f.write("=" * 80 + "\n\n")
+            
+            # Write metric weights
+            f.write("Metric Weights Used:\n")
+            for metric, weight in weights.items():
+                f.write(f"  - {metric}: {weight:.2f}\n")
+            f.write("\n")
+            
+            # Write top configurations
+            for i, (idx, row) in enumerate(top_configs.iterrows()):
+                f.write(f"Configuration #{i+1}\n")
+                f.write("-" * 80 + "\n")
+                f.write(f"Prompt Model: {idx[0]}\n")
+                f.write(f"Answer Model: {idx[1]}\n")
+                f.write(f"Prompt Type: {idx[2]}\n")
+                f.write(f"Prompt Variation: {idx[3]}\n")
+                f.write(f"Weighted Score: {row['weighted_score']:.4f}\n\n")
+                
+                f.write("Individual Metrics (Normalized):\n")
+                for metric in metrics:
+                    f.write(f"  - {metric}: {row[metric]:.4f}\n")
+                
+                f.write("\nSystem Prompt:\n")
+                f.write(idx[4] + "\n\n")
+                f.write("=" * 80 + "\n\n")
+        
+        print(f"Best configurations analysis saved to {text_output_path}")
+        
+        # Also save a CSV with the top configurations
+        csv_output_path = os.path.join(self.output_dir, "best_configurations.csv")
+        top_configs.reset_index().to_csv(csv_output_path, index=False)
+        print(f"Best configurations data saved to {csv_output_path}")
+
     def generate_comprehensive_report(self) -> None:
         """
         Generate a comprehensive set of visualizations for the results.
         This runs all major visualization methods to create a complete report.
         """
         print("Generating comprehensive report...")
+        
+        # Normalize metrics first
+        self._normalize_metrics()
+        
+        # Use normalized dataframe for all visualizations
+        self.df = self.normalized_df
         
         # Model comparisons
         self.plot_model_comparison(metric="answer_similarity", group_by="answer_model")
@@ -564,6 +776,12 @@ class ResultsVisualizer:
         
         # Question difficulty
         self.plot_question_difficulty()
+        
+        # Best prompts analysis
+        self.plot_best_prompts()
+        
+        # Best configurations analysis
+        self.analyze_best_configurations()
         
         # Model reports for each unique model
         for model in self.df['answer_model'].unique():

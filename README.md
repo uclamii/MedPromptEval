@@ -67,6 +67,26 @@ MedPromptEval can be used for:
 - Evaluation pipeline for testing system prompts on real QA datasets
 - Multi-model evaluation capabilities for comprehensive performance comparisons
 - Memory-efficient evaluation with comprehensive NLP metrics
+- **Multiple Prompt Types**: Supports various prompt engineering techniques including Chain of Thought, Self-Consistency, ReAct, and more
+- **Comprehensive Metrics**: Evaluates answers using multiple metrics including semantic similarity, ROUGE scores, BLEU score, and BERTScore
+- **Flexible Model Support**: Works with any Hugging Face model
+- **Incremental Processing**: Results are written to CSV immediately after each evaluation, providing:
+  - Crash resistance
+  - Progress visibility
+  - Memory efficiency
+- **Resume Capability**: Continue processing from any question using the `--resume-from` argument
+- **CSV Output Handling**:
+  - Automatic directory creation
+  - Safe append mode
+  - Header management
+  - Long text handling
+- **Advanced Visualization**: Comprehensive analysis tools with:
+  - Model comparisons
+  - Prompt type analysis
+  - Metric distributions
+  - Correlation analysis
+  - Best configurations analysis
+  - Normalized metric scoring
 
 ## Project Structure
 
@@ -663,6 +683,34 @@ This analysis helps you:
 2. Understand which prompt types work best
 3. See detailed metrics for each combination
 4. Get explanations for why certain combinations performed well 
+
+## Experiment Summarization and Visualization
+
+The `summarize_experiments.py` script provides automated analysis and visualization of experiment results. It processes the output CSVs from all evaluation experiments and generates:
+
+- A summary figure with bar charts and heatmaps comparing prompt types, models, and configurations across datasets.
+- A best configuration summary table (`best_configurations_summary.csv`) that includes, for each experiment:
+  - Dataset and experiment type
+  - Best prompt type, prompt model, and answer model
+  - System prompt used
+  - All raw metric values for the best configuration
+  - The overall weighted score
+- Normalized versions of each experiment's results in the `normalized_results/` directory.
+
+### Usage
+
+To run the summarization and generate all outputs:
+
+```bash
+python summarize_experiments.py
+```
+
+This will create:
+- `summary_figure.png`: A multi-panel figure visualizing the main findings
+- `best_configurations_summary.csv`: A table of the best configuration and metrics for each experiment
+- `normalized_results/`: Folder containing normalized CSVs for each experiment
+
+You can use these outputs directly in your paper or for further analysis.
 
 ## Pipeline Features
 
