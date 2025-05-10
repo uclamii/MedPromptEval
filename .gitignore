@@ -54,6 +54,8 @@ archive/
 prompts/
 datasets/
 results/
+final_results/
+normalized_results/
 data_preprocessing/
 qa_results.csv
 prompts_medical_qa.json
