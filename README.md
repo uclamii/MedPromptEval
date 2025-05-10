@@ -97,6 +97,7 @@ MedPromptEval can be used for:
 - `pipeline.py`: Comprehensive pipeline for evaluating generated prompts on question-answering datasets
 - `test_pipeline.py`: Command-line interface for running the generator
 - `visualizer.py`: Visualization tools for analyzing evaluation results
+- `summarize_experiments.py`: Automated analysis and visualization of experiment results.
 - `datasets/`: Directory containing medical QA datasets
 - `results/`: Output directory for evaluation results
 - `visualizations/`: Generated charts and plots from analysis
