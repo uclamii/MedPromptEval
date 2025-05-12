@@ -83,10 +83,10 @@ custom_prompts = [
 ]
 
 def plot_experiments(results, bests, out_file="summary_figure.png"):
-    sns.set(style="whitegrid", font_scale=1.5)
+    sns.set(style="whitegrid", font_scale=1.8)
     # 3 columns, 2 rows: top row = main plots, bottom row = annotation panels
     fig, axes = plt.subplots(
-        2, 3, figsize=(28, 12),  # Smaller, more compact figure
+        2, 3, figsize=(28, 12),
         gridspec_kw={'height_ratios': [3, 1.5], 'width_ratios': [1, 1, 1.2]}
     )
     palette = sns.color_palette("viridis", as_cmap=True)
@@ -94,37 +94,39 @@ def plot_experiments(results, bests, out_file="summary_figure.png"):
     # --- Main Panels ---
     for i, (df, best, name) in enumerate(zip([r['grouped'] for r in results], bests, [r['name'] for r in results])):
         ax = axes[0, i]
+        # Add label A, B, C to bottom left of each chart
+        ax.text(-0.1, -0.1, chr(65 + i), transform=ax.transAxes, fontsize=20, fontweight='bold')
+        
         if i == 0:
             df['label'] = df['prompt_type'].str.title() + '\n' + df['prompt_model'].apply(lambda x: str(x).split('/')[-1])
             sns.barplot(x='overall_score', y='label', data=df, ax=ax, palette="crest")
-            ax.set_title(f"{name}: Prompt Type × Prompt Model", fontsize=14)
-            ax.set_xlabel("Overall Score", fontsize=11)
-            ax.set_ylabel("Prompt Type\nPrompt Model", fontsize=11)
-            ax.tick_params(axis='both', labelsize=10)
+            ax.set_title(f"{name}: Prompt Type × Prompt Model", fontsize=16)
+            ax.set_xlabel("Overall Score", fontsize=14)
+            ax.set_ylabel("Prompt Type\nPrompt Model", fontsize=14)
+            ax.tick_params(axis='both', labelsize=12)
         elif i == 1:
             df['label'] = df['answer_model'].apply(lambda x: str(x).split('/')[-1]) + '\n' + df['prompt_model'].apply(lambda x: str(x).split('/')[-1])
             sns.barplot(x='overall_score', y='label', data=df, ax=ax, palette="crest")
-            ax.set_title(f"{name}: Answer Model × Prompt Model", fontsize=14)
-            ax.set_xlabel("Overall Score", fontsize=11)
-            ax.set_ylabel("Answer Model\nPrompt Model", fontsize=11)
-            ax.tick_params(axis='both', labelsize=10)
+            ax.set_title(f"{name}: Answer Model × Prompt Model", fontsize=16)
+            ax.set_xlabel("Overall Score", fontsize=14)
+            ax.set_ylabel("Answer Model\nPrompt Model", fontsize=14)
+            ax.tick_params(axis='both', labelsize=12)
         else:
             df['row'] = df['prompt_type'].str.title() + '\n' + df['prompt_model'].apply(lambda x: str(x).split('/')[-1])
             pivot = df.pivot(index='row', columns='answer_model', values='overall_score')
             sns.heatmap(
                 pivot, annot=True, fmt=".2f", cmap="YlGnBu", ax=ax,
-                cbar_kws={'label': 'Overall Score'}, annot_kws={'size': 10}
+                cbar_kws={'label': 'Overall Score'}, annot_kws={'size': 12}
             )
-            ax.set_title(f"{name}: (Prompt Type × Prompt Model) vs Answer Model", fontsize=14)
-            ax.set_xlabel("Answer Model", fontsize=11)
-            ax.set_ylabel("Prompt Type\nPrompt Model", fontsize=11)
+            ax.set_title(f"{name}: (Prompt Type × Prompt Model) vs Answer Model", fontsize=16)
+            ax.set_xlabel("Answer Model", fontsize=14)
+            ax.set_ylabel("Prompt Type\nPrompt Model", fontsize=14)
             best_row_label = f"{best['prompt_type'].title()}\n{str(best['prompt_model']).split('/')[-1]}"
             y, x = list(pivot.index).index(best_row_label), list(pivot.columns).index(best['answer_model'])
             ax.add_patch(plt.Rectangle((x, y), 1, 1, fill=False, edgecolor='red', lw=2))
-            # Update x-axis tick labels to only show model name, horizontal and wrapped
             new_xticklabels = [textwrap.fill(str(col).split('/')[-1], width=12) for col in pivot.columns]
-            ax.set_xticklabels(new_xticklabels, rotation=0, fontsize=10, ha='center')
-            ax.tick_params(axis='both', labelsize=10)
+            ax.set_xticklabels(new_xticklabels, rotation=0, fontsize=12, ha='center')
+            ax.tick_params(axis='both', labelsize=12)
 
     # --- Annotation Panels ---
     for i, (exp, best) in enumerate(zip(EXPERIMENTS, bests)):
@@ -157,11 +159,11 @@ def plot_experiments(results, bests, out_file="summary_figure.png"):
         sys_prompt_wrapped = textwrap.fill(sys_prompt, width=80)
         config_text += "\nSystem Prompt:\n" + sys_prompt_wrapped
         ax.text(
-            0, 0.95, config_text, fontsize=9, va='top', ha='left', wrap=True, family='monospace', bbox=dict(facecolor='white', alpha=0.95, boxstyle='round,pad=0.5')
+            0, 0.95, config_text, fontsize=11, va='top', ha='left', wrap=True, family='monospace', bbox=dict(facecolor='white', alpha=0.95, boxstyle='round,pad=0.5')
         )
 
-    plt.tight_layout(h_pad=3.5)  # Restore some vertical padding between rows
-    plt.subplots_adjust(wspace=0.6, hspace=0.15)  # Restore some vertical space between figure and annotation panels
+    plt.tight_layout(h_pad=3.0)
+    plt.subplots_adjust(wspace=0.5, hspace=0.15)
     plt.savefig(out_file, dpi=300, bbox_inches='tight')
     print(f"Figure saved as {out_file}")
 
