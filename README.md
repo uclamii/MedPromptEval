@@ -6,6 +6,8 @@ MedPromptEval is a comprehensive framework for evaluating and improving large la
 
 MedPromptEval provides a complete framework for generating high-quality system prompts that guide language models in answering medical questions, evaluating their performance, and analyzing the results. It's designed to help researchers and practitioners understand which combinations of models and prompting strategies yield the most accurate, relevant, and unbiased medical answers.
 
+![image](https://github.com/user-attachments/assets/2946baf4-e414-44aa-81c9-baf0c3a9618d)
+
 ### What Problem Does It Solve?
 
 Medical question answering requires both accuracy and appropriate explanation. This framework allows you to:
