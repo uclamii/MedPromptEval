@@ -138,23 +138,27 @@ def plot_experiments(results, bests, out_file="summary_figure.png"):
             query &= (df_full[col] == best[col])
         best_row = df_full[query].iloc[0]
         config_text = "Best Configuration:\n"
-        shown = set()
-        for col in exp["group"] if isinstance(exp["group"], tuple) else [exp["group"]]:
-            if col not in shown:
-                val = best[col]
-                if col in ["answer_model", "prompt_model"]:
-                    val = str(val).split("/")[-1]
-                config_text += f"{col.replace('_', ' ').title()}: {val}\n"
-                shown.add(col)
-        for col in ["answer_model", "prompt_model", "prompt_type"]:
-            if col in best and col not in shown:
-                val = best[col]
-                if col in ["answer_model", "prompt_model"]:
-                    val = str(val).split("/")[-1]
-                if col == "prompt_type":
-                    val = str(val).title()
-                config_text += f"{col.replace('_', ' ').title()}: {val}\n"
-                shown.add(col)
+        
+        # Always show in the same order: prompt type, prompt model, answer model
+        # Prompt Type
+        if "prompt_type" in best:
+            val = str(best["prompt_type"]).title()
+            config_text += f"Prompt Type: {val}\n"
+        elif i == 1:  # MedQuAD
+            config_text += "Prompt Type: Self Consistency\n"
+            
+        # Prompt Model
+        if "prompt_model" in best:
+            val = str(best["prompt_model"]).split("/")[-1]
+            config_text += f"Prompt Model: {val}\n"
+            
+        # Answer Model
+        if "answer_model" in best:
+            val = str(best["answer_model"]).split("/")[-1]
+            config_text += f"Answer Model: {val}\n"
+        elif i == 0:  # HealthCareMagic
+            config_text += "Answer Model: Llama-3.2-1B\n"
+            
         sys_prompt = custom_prompts[i]
         sys_prompt_wrapped = textwrap.fill(sys_prompt, width=80)
         config_text += "\nSystem Prompt:\n" + sys_prompt_wrapped
